@@ -114,10 +114,16 @@
   <!-- ========== 모달 ========== -->
   <div id="token-modal" class="modal hidden">
     <div class="modal-inner">
-      <h3>헬퍼 토큰 등록</h3>
-      <p>외부에서 접속할 때 한 번만 등록하면 돼.<br>
-        토큰은 <code>D:\Sites\mintspace\data\token.txt</code>에 있어.</p>
+      <h3>⚙ 설정</h3>
+
+      <label>헬퍼 URL</label>
+      <input id="helper-url-input" type="text" placeholder="http://localhost:5500" />
+      <p class="hint-tiny">외부 사이트(vercel.app 등)에서 접속할 때 본인 PC의 헬퍼를 부르는 주소. 기본은 <code>http://localhost:5500</code>.</p>
+
+      <label>헬퍼 토큰</label>
       <input id="token-input" type="text" placeholder="토큰 붙여넣기" />
+      <p class="hint-tiny">외부에서 접속할 때만 필요. 토큰은 <code>D:\Sites\mintspace\data\token.txt</code>에 있어.</p>
+
       <div class="modal-actions">
         <button id="token-cancel" class="link-btn">취소</button>
         <button id="token-save" class="primary-btn">저장</button>

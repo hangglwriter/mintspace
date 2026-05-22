@@ -1,0 +1,9 @@
+# 로컬 전용 (Vercel에 안 올라감)
+helper/
+data/
+*.bat
+*.ps1
+__pycache__/
+*.pyc
+.venv/
+venv/

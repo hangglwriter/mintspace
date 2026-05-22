@@ -1,6 +1,8 @@
 // 민티스페이스 v0.2 — 좌측 사이드바 + 책갈피 + 카테고리/프로젝트 추가
 
-const HELPER_DEFAULT = `${location.protocol}//${location.hostname}:5500`;
+const HELPER_DEFAULT = ["localhost", "127.0.0.1"].includes(location.hostname)
+  ? `${location.protocol}//${location.hostname}:5500`
+  : `http://localhost:5500`;
 const STATE = {
   helperBase: localStorage.getItem("mintspace_helper") || HELPER_DEFAULT,
   token: localStorage.getItem("mintspace_token") || "",
@@ -441,15 +443,26 @@ function renderLinks() {
 
 function setupTokenModal() {
   $("#token-save").addEventListener("click", async () => {
-    const v = $("#token-input").value.trim();
-    if (!v) return;
-    STATE.token = v;
-    localStorage.setItem("mintspace_token", v);
+    const tokenVal = $("#token-input").value.trim();
+    const urlVal = $("#helper-url-input").value.trim();
+    if (urlVal && urlVal !== STATE.helperBase) {
+      STATE.helperBase = urlVal.replace(/\/$/, "");
+      localStorage.setItem("mintspace_helper", STATE.helperBase);
+    }
+    if (tokenVal) {
+      STATE.token = tokenVal;
+      localStorage.setItem("mintspace_token", tokenVal);
+    }
+    if (!tokenVal && !urlVal) return;
     hideTokenModal();
     await boot(true);
   });
   $("#token-cancel").addEventListener("click", hideTokenModal);
-  $("#settings-btn").addEventListener("click", showTokenModal);
+  $("#settings-btn").addEventListener("click", () => {
+    $("#helper-url-input").value = STATE.helperBase || "";
+    $("#token-input").value = STATE.token || "";
+    showTokenModal();
+  });
   $("#banner-retry").addEventListener("click", () => boot(true));
 }
 
