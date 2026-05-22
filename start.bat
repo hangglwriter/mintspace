@@ -38,8 +38,10 @@ if errorlevel 1 (
     echo [WARN] Helper did not respond in time. Opening browser anyway.
 )
 
-REM ---- Open browser ----
+REM ---- Open browser (skip if --no-browser flag) ----
+if /i "%1"=="--no-browser" goto done
 echo Opening browser...
 start "" http://localhost:5500
 
+:done
 exit
