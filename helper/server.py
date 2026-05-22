@@ -140,6 +140,20 @@ class OrderIn(BaseModel):
     ids: list[str]
 
 
+class CategoryPatch(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+
+
+class ProjectPatch(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    folder: Optional[str] = None
+    url: Optional[str] = None
+    note: Optional[str] = None
+
+
 def load_projects_data() -> dict:
     if not PROJECTS_FILE.exists():
         return {"categories": [], "projects": [], "links": []}
@@ -322,6 +336,22 @@ def delete_category(cat_id: str, x_token: Optional[str] = Header(default=None)):
     return {"ok": True}
 
 
+@app.patch("/api/categories/{cat_id}")
+def update_category(cat_id: str, body: CategoryPatch, x_token: Optional[str] = Header(default=None)):
+    """카테고리 이름/아이콘/색 수정. id는 불변(메뉴 anchor 호환)."""
+    require_token(x_token)
+    data = load_projects_data()
+    cat = next((c for c in data["categories"] if c["id"] == cat_id), None)
+    if not cat:
+        raise HTTPException(status_code=404, detail="카테고리 없음")
+    if body.name is not None: cat["name"] = body.name
+    if body.icon is not None: cat["icon"] = body.icon
+    if body.color is not None: cat["color"] = body.color
+    save_projects_data(data)
+    append_log(f"✏ 카테고리 수정: {cat['name']}")
+    return cat
+
+
 @app.post("/api/projects-meta")
 def add_project(body: ProjectIn, x_token: Optional[str] = Header(default=None)):
     require_token(x_token)
@@ -376,6 +406,27 @@ def delete_project(project_id: str, x_token: Optional[str] = Header(default=None
         raise HTTPException(status_code=404, detail="프로젝트 없음")
     save_projects_data(data)
     return {"ok": True}
+
+
+@app.patch("/api/projects-meta/{project_id}")
+def update_project(project_id: str, body: ProjectPatch, x_token: Optional[str] = Header(default=None)):
+    """프로젝트 메타 수정 (카테고리 이동, 이름·폴더·URL·노트 변경)."""
+    require_token(x_token)
+    data = load_projects_data()
+    p = next((p for p in data["projects"] if p["id"] == project_id), None)
+    if not p:
+        raise HTTPException(status_code=404, detail="프로젝트 없음")
+    if body.category is not None:
+        if not any(c["id"] == body.category for c in data["categories"]):
+            raise HTTPException(status_code=400, detail="카테고리 없음")
+        p["category"] = body.category
+    if body.name is not None: p["name"] = body.name
+    if body.folder is not None: p["folder"] = body.folder
+    if body.url is not None: p["url"] = body.url
+    if body.note is not None: p["note"] = body.note
+    save_projects_data(data)
+    append_log(f"✏ 프로젝트 수정: {p['name']}")
+    return p
 
 
 @app.get("/api/bookmarks")

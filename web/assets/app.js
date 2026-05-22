@@ -9,6 +9,7 @@ const STATE = {
   data: { categories: [], projects: [], links: [] },
   bookmarks: [],
   connected: false,
+  editingCatId: null,  // 카테고리 편집 모달용
 };
 
 // ===== 유틸 =====
@@ -141,14 +142,15 @@ function renderCategories() {
           ${cat.name}
         </h2>
         <span class="section-sub">${list.length}개</span>
+        <button class="section-action" data-edit-cat="${cat.id}" title="카테고리 수정">✏</button>
         <button class="section-action" data-add-prj="${cat.id}">+ 프로젝트</button>
         ${list.length === 0 ? `<button class="section-action" data-del-cat="${cat.id}" title="빈 카테고리 삭제">✕</button>` : ""}
       </div>
-      <div class="grid"></div>
+      <div class="grid" data-grid-cat="${cat.id}"></div>
     `;
     const grid = section.querySelector(".grid");
     if (list.length === 0) {
-      grid.innerHTML = `<div class="empty">아직 프로젝트 없음 · 우측 [+ 프로젝트] 버튼으로 추가</div>`;
+      grid.innerHTML = `<div class="empty" data-empty-cat="${cat.id}">비어있음 · [+ 프로젝트] 추가 or 다른 카테고리 카드 끌어다 놓기</div>`;
     } else {
       list.forEach(p => grid.appendChild(renderCard(p, cat)));
     }
@@ -304,29 +306,59 @@ function setupBookmarkInput() {
   nameInput.addEventListener("keydown", e => { if (e.key === "Enter") add(); });
 }
 
-// ===== 카테고리 추가 =====
+// ===== 카테고리 추가/편집 (한 모달 재활용) =====
 function setupCategoryModal() {
+  // 추가 모드
   $("#add-category-btn").addEventListener("click", () => {
+    STATE.editingCatId = null;
+    $("#category-modal h3").textContent = "새 카테고리";
     $("#cat-name").value = "";
     $("#cat-icon").value = "📁";
     $("#cat-color").value = "#10b981";
     $("#category-modal").classList.remove("hidden");
     $("#cat-name").focus();
   });
+
+  // 편집 모드 (✏ 버튼 위임)
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-edit-cat]");
+    if (!btn) return;
+    const cat = STATE.data.categories.find(c => c.id === btn.dataset.editCat);
+    if (!cat) return;
+    STATE.editingCatId = cat.id;
+    $("#category-modal h3").textContent = `카테고리 수정: ${cat.name}`;
+    $("#cat-name").value = cat.name;
+    $("#cat-icon").value = cat.icon || "📁";
+    $("#cat-color").value = cat.color || "#10b981";
+    $("#category-modal").classList.remove("hidden");
+    $("#cat-name").focus();
+    $("#cat-name").select();
+  });
+
   $("#cat-save").addEventListener("click", async () => {
     const name = $("#cat-name").value.trim();
     if (!name) return toast("이름을 입력해", "err");
+    const payload = {
+      name,
+      icon: $("#cat-icon").value.trim() || "📁",
+      color: $("#cat-color").value,
+    };
     try {
-      await api("/api/categories", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          icon: $("#cat-icon").value.trim() || "📁",
-          color: $("#cat-color").value,
-        }),
-      });
+      if (STATE.editingCatId) {
+        await api(`/api/categories/${STATE.editingCatId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        toast(`✏ "${name}" 수정됨`);
+      } else {
+        await api("/api/categories", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        toast(`✅ 카테고리 "${name}" 추가됨`);
+      }
       $("#category-modal").classList.add("hidden");
-      toast(`✅ 카테고리 "${name}" 추가됨`);
+      STATE.editingCatId = null;
       await loadProjects();
     } catch (err) { toast("실패: " + err.message, "err"); }
   });
@@ -493,17 +525,18 @@ async function boot(retry = false) {
   }
 }
 
-// ===== 드래그 앤 드롭 (카드 순서 변경) =====
+// ===== 드래그 앤 드롭 (카드 순서 변경 + 카테고리 간 이동) =====
 function setupDragAndDrop() {
   let dragging = null;
+  let originalCat = null;  // 드래그 시작 시점 카테고리 (변경 감지용)
 
   document.addEventListener("dragstart", (e) => {
     const card = e.target.closest(".card[data-pid]");
     if (!card) return;
     dragging = card;
+    originalCat = card.dataset.cat;
     card.classList.add("dragging");
-    const grid = card.closest(".grid");
-    if (grid) grid.classList.add("drag-active");
+    $$(".grid").forEach(g => g.classList.add("drag-active"));
     e.dataTransfer.effectAllowed = "move";
     try { e.dataTransfer.setData("text/plain", card.dataset.pid); } catch {}
   });
@@ -511,41 +544,84 @@ function setupDragAndDrop() {
   document.addEventListener("dragend", () => {
     if (dragging) dragging.classList.remove("dragging");
     $$(".grid.drag-active").forEach(g => g.classList.remove("drag-active"));
+    $$(".grid.drag-over").forEach(g => g.classList.remove("drag-over"));
     dragging = null;
+    originalCat = null;
   });
 
   document.addEventListener("dragover", (e) => {
     if (!dragging) return;
-    const target = e.target.closest(".card[data-pid]");
-    if (!target || target === dragging) return;
-    // 같은 카테고리 내에서만
-    if (dragging.dataset.cat !== target.dataset.cat) return;
-    e.preventDefault();
-    const rect = target.getBoundingClientRect();
-    const before = e.clientY < rect.top + rect.height / 2;
-    const parent = target.parentNode;
-    if (before) parent.insertBefore(dragging, target);
-    else parent.insertBefore(dragging, target.nextSibling);
+
+    // 1. 카드 위로 드래그 (위치 결정)
+    const targetCard = e.target.closest(".card[data-pid]");
+    if (targetCard && targetCard !== dragging) {
+      e.preventDefault();
+      const newGrid = targetCard.closest(".grid");
+      const newCat = newGrid?.dataset.gridCat;
+      if (newCat && newCat !== dragging.dataset.cat) {
+        dragging.dataset.cat = newCat;  // 카테고리 시각 갱신
+      }
+      const rect = targetCard.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      const parent = targetCard.parentNode;
+      if (before) parent.insertBefore(dragging, targetCard);
+      else parent.insertBefore(dragging, targetCard.nextSibling);
+      return;
+    }
+
+    // 2. 빈 grid 위로 드래그 (그 카테고리로 이동)
+    const targetGrid = e.target.closest(".grid[data-grid-cat]");
+    if (targetGrid && !targetGrid.contains(dragging)) {
+      e.preventDefault();
+      const newCat = targetGrid.dataset.gridCat;
+      const emptyMsg = targetGrid.querySelector(".empty");
+      if (emptyMsg) emptyMsg.remove();
+      dragging.dataset.cat = newCat;
+      targetGrid.appendChild(dragging);
+    }
   });
 
   document.addEventListener("drop", async (e) => {
     if (!dragging) return;
     e.preventDefault();
-    // 전체 카드 순서 수집
-    const newOrder = [];
-    $$(".section .card[data-pid]").forEach(c => newOrder.push(c.dataset.pid));
+
+    const movedToOtherCat = dragging.dataset.cat !== originalCat;
+    const pid = dragging.dataset.pid;
+    const newCat = dragging.dataset.cat;
+
     try {
+      // 카테고리가 바뀌었으면 먼저 PATCH
+      if (movedToOtherCat) {
+        await api(`/api/projects-meta/${pid}`, {
+          method: "PATCH",
+          body: JSON.stringify({ category: newCat }),
+        });
+        // STATE도 갱신
+        const p = STATE.data.projects.find(p => p.id === pid);
+        if (p) p.category = newCat;
+      }
+
+      // 전체 순서 저장 (카테고리별 grid 순서 = 전역 projects 순서)
+      const newOrder = [];
+      $$(".section .card[data-pid]").forEach(c => newOrder.push(c.dataset.pid));
       await api("/api/projects-order", {
         method: "POST",
         body: JSON.stringify({ ids: newOrder }),
       });
-      // 로컬 STATE도 갱신 (재렌더 안 함 - 깜빡임 방지)
       const idMap = {};
       STATE.data.projects.forEach(p => idMap[p.id] = p);
       STATE.data.projects = newOrder.map(id => idMap[id]).filter(Boolean);
-      toast("순서 저장됨");
+
+      if (movedToOtherCat) {
+        toast(`✅ "${dragging.querySelector('.card-title')?.textContent.trim().split(' ')[0]}" 이동됨`);
+        // 빈 grid 카운트 / 헤더 등 다시 그려야 정확
+        await loadProjects();
+      } else {
+        toast("순서 저장됨");
+      }
     } catch (err) {
-      toast("순서 저장 실패: " + err.message, "err");
+      toast("저장 실패: " + err.message, "err");
+      await loadProjects();  // 실패 시 서버 상태로 복구
     }
   });
 }

@@ -428,6 +428,17 @@ input, select, textarea {
   border-left-width: 6px;
   transform: translateX(3px);
 }
+.grid.drag-active {
+  min-height: 60px;
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+  border-radius: var(--r);
+  transition: outline-color .15s, background .15s;
+}
+.grid.drag-active:hover {
+  outline-color: var(--accent);
+  background: var(--accent-bg);
+}
 .grid.drag-active .card:not(.dragging) {
   transition: transform .15s;
 }
