@@ -1,0 +1,28 @@
+# 민감 정보 / 로컬 전용
+data/token.txt
+data/logs/
+data/bookmarks.json
+data/projects.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 에디터
+.vscode/
+.idea/
+*.swp
+
+# 로컬 임시
+*.log
+*.tmp

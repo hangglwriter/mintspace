@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>하네스 지도 · 민티스페이스</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+  <link rel="stylesheet" href="/assets/harness.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🗺%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ========== 좌측 사이드바 (간소화) ========== -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="logo">🗺</span>
+        <div>
+          <div class="brand-name">하네스 지도</div>
+          <div class="brand-sub">harness map</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/" class="nav-item">
+          <span class="nav-label">← 민티스페이스</span>
+        </a>
+        <div class="nav-divider"></div>
+        <div class="nav-section-label">바로가기</div>
+        <a href="#stack" class="nav-item">🏗 5층 구조</a>
+        <a href="#scores" class="nav-item">📊 진단 점수</a>
+        <a href="#gaps" class="nav-item">🎯 빈 칸 Top 5</a>
+        <a href="#mapping" class="nav-item">🗂 프로젝트 매핑</a>
+        <a href="#actions" class="nav-item">⚡ 다음 액션</a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <a href="/" class="sidebar-action">
+          <span>🌿</span> 작업 시작
+        </a>
+        <div class="helper-indicator">
+          <span class="dot"></span>
+          <span class="label">v1 · 2026-05-22</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========== 메인 ========== -->
+    <main class="main harness-main">
+
+      <header class="topbar harness-topbar">
+        <div>
+          <h1 class="page-title">🗺 하네스 지도 v1</h1>
+          <p class="page-sub">민티가 운영 중인 AI 워크플로우 전체 지도. 빈 칸을 채우면 효율 ↑</p>
+        </div>
+      </header>
+
+      <section class="intro-card">
+        <strong>하네스(Harness)란?</strong>
+        AI 모델 자체가 아니라 <b>AI를 일하게 만드는 모든 장치의 묶음</b>.
+        컨텍스트 주입(CLAUDE.md), 반복 명령(슬래시), 전문 모듈(스킬),
+        자동 트리거(loop/schedule), 외부 연결(MCP), 기억(메모리), 발행 파이프라인까지.
+        민티는 이미 정교한 하네스를 운영 중이지만 "지도"가 없어 빈 칸이 안 보였음. 이 페이지가 그 지도.
+      </section>
+
+      <section id="stack" class="hsection">
+        <h2>한눈에 보기 — 5층 구조</h2>
+
+        <div class="legend">
+          <span class="legend-item"><span class="dot dot-have"></span> 작동 중 (✓)</span>
+          <span class="legend-item"><span class="dot dot-partial"></span> 부분 활용 (△)</span>
+          <span class="legend-item"><span class="dot dot-gap"></span> 빈 칸 (✗) — 보강 후보</span>
+        </div>
+
+        <div class="stack">
+
+          <!-- 5층 발행 -->
+          <div class="layer layer-5">
+            <div class="layer-head">
+              <span class="layer-num">05</span>
+              <span class="layer-title">발행/배포</span>
+              <span class="layer-sub">최종 결과물이 세상에 나가는 통로</span>
+            </div>
+            <div class="layer-body">
+              <div class="item have">Vercel <small>youtube-reports, storywinner</small></div>
+              <div class="item have">Cloudflare Pages <small>promptkit, woori-intro</small></div>
+              <div class="item have">YouTube <small>행글라이터</small></div>
+              <div class="item have">티스토리 <small>#28 마케터봄날이</small></div>
+              <div class="item have">Remotion <small>영상 빌드</small></div>
+              <div class="item partial">Notion 공유 <small>기획실 사이트</small></div>
+              <div class="item gap">인스타 자동 업로드</div>
+              <div class="item gap">서점/스마트스토어 연동</div>
+            </div>
+          </div>
+
+          <!-- 4층 외부 연결 -->
+          <div class="layer layer-4">
+            <div class="layer-head">
+              <span class="layer-num">04</span>
+              <span class="layer-title">외부 도구 연결 (MCP / API)</span>
+              <span class="layer-sub">Claude 손이 닿는 외부 서비스</span>
+            </div>
+            <div class="layer-body">
+              <div class="item have">Gmail MCP <small>브리핑 사용</small></div>
+              <div class="item partial">Notion MCP <small>DB URL 우선 룰</small></div>
+              <div class="item partial">Canva MCP <small>설치만</small></div>
+              <div class="item partial">Zapier MCP <small>8000개 미사용</small></div>
+              <div class="item have">YouTube Data API <small>thumbnail-lab</small></div>
+              <div class="item have">Whisper STT <small>녹취</small></div>
+              <div class="item gap">Google Drive MCP</div>
+              <div class="item gap">Google Calendar MCP</div>
+            </div>
+          </div>
+
+          <!-- 3층 자동 트리거 -->
+          <div class="layer layer-3 layer-weak">
+            <div class="layer-head">
+              <span class="layer-num">03</span>
+              <span class="layer-title">자동 트리거 (Schedulers / Hooks)</span>
+              <span class="layer-sub">사람이 부르지 않아도 알아서 도는 것들 · 가장 약함</span>
+            </div>
+            <div class="layer-body">
+              <div class="item partial">/loop <small>주간리포트 미적용</small></div>
+              <div class="item partial">/schedule <small>Routines</small></div>
+              <div class="item partial">daily-brief <small>수동 1회 검증</small></div>
+              <div class="item have">publish.bat <small>리포트 배포</small></div>
+              <div class="item have">update_sidebar.py <small>home.md 갱신</small></div>
+              <div class="item gap">매주 ai_news_crawl 자동</div>
+              <div class="item gap">영상 발행 후 7일 성과 리포트</div>
+              <div class="item gap">티스토리 발행 → SNS 카드 훅</div>
+            </div>
+          </div>
+
+          <!-- 2층 영역별 스킬 -->
+          <div class="layer layer-2">
+            <div class="layer-head">
+              <span class="layer-num">02</span>
+              <span class="layer-title">영역별 스킬·커맨드 (15스킬)</span>
+              <span class="layer-sub">반복 워크플로를 한 줄로 부르는 모듈</span>
+            </div>
+            <div class="layer-body">
+              <div class="item have">youtube-workflow</div>
+              <div class="item have">youtube-ppt</div>
+              <div class="item have">whisper</div>
+              <div class="item have">ebook <small>8 모드</small></div>
+              <div class="item have">book-landing 🚧</div>
+              <div class="item have">reading-translation</div>
+              <div class="item have">claude-lecture</div>
+              <div class="item have">lecture-ppt</div>
+              <div class="item have">lecture-mail</div>
+              <div class="item have">blog</div>
+              <div class="item have">blog-tistory</div>
+              <div class="item have">customer-response</div>
+              <div class="item have">press-release</div>
+              <div class="item have">team</div>
+              <div class="item have">research-batch</div>
+              <div class="item gap">marketing-agency</div>
+              <div class="item gap">video-benchmark</div>
+              <div class="item gap">cd-loop</div>
+              <div class="item gap">cycle-runner</div>
+            </div>
+          </div>
+
+          <!-- 1층 코어 -->
+          <div class="layer layer-1">
+            <div class="layer-head">
+              <span class="layer-num">01</span>
+              <span class="layer-title">코어 (Core)</span>
+              <span class="layer-sub">하네스 전체의 뼈대 — 항상 켜져 있는 것</span>
+            </div>
+            <div class="layer-body">
+              <div class="item have">Claude Code <small>Opus 4.7 1M</small></div>
+              <div class="item have">글로벌 CLAUDE.md <small>~10KB</small></div>
+              <div class="item have">프로젝트별 CLAUDE.md</div>
+              <div class="item have">자동 메모리</div>
+              <div class="item have">Agent Teams (실험)</div>
+              <div class="item have">/cmd 치트시트</div>
+              <div class="item have">study/ 학습 노트</div>
+              <div class="item have">사이클 패턴 R0~R6</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <section id="scores" class="hsection">
+        <h2>층별 진단 점수</h2>
+        <div class="score-grid">
+          <div class="score-card">
+            <div class="score-card-title">01 코어</div>
+            <div class="score-num score-have">95</div>
+            <small>탄탄. 글로벌+프로젝트 CLAUDE.md, 메모리, Agent Teams 작동. 손 안 댐.</small>
+          </div>
+          <div class="score-card">
+            <div class="score-card-title">02 도메인 스킬</div>
+            <div class="score-num score-partial">75</div>
+            <small>15스킬 풍부. 빈 칸 = 마케팅 대행 / 영상 벤치마크 / CD 루프 / 사이클 패턴.</small>
+          </div>
+          <div class="score-card score-card-weak">
+            <div class="score-card-title">03 자동 트리거</div>
+            <div class="score-num score-gap">40</div>
+            <small>가장 약함. 도구는 있는데 실제 도는 자동화 거의 없음. 보강 1순위.</small>
+          </div>
+          <div class="score-card">
+            <div class="score-card-title">04 외부 연결</div>
+            <div class="score-num score-partial">60</div>
+            <small>MCP 4개 깔렸으나 Gmail만 실전. Notion/Canva/Zapier 잠재력 큼.</small>
+          </div>
+          <div class="score-card">
+            <div class="score-card-title">05 발행/배포</div>
+            <div class="score-num score-have">85</div>
+            <small>Vercel·CF·YouTube·티스토리·Remotion 작동. 인스타·서점 빈 칸.</small>
+          </div>
+        </div>
+      </section>
+
+      <section id="gaps" class="hsection">
+        <h2>빈 칸 우선순위 Top 5</h2>
+        <p class="hint">"여기 채우면 효율이 확 뛴다" — 1·2번은 최우선 (지도가 알려준 것)</p>
+
+        <div class="gap-list">
+
+          <div class="gap-card priority">
+            <div class="gap-head">
+              <span class="gap-rank">#1</span>
+              <h3>daily-brief 자동화</h3>
+              <span class="badge badge-priority">최우선</span>
+            </div>
+            <div class="gap-meta">3층 · 자동 트리거 · 예상 30분</div>
+            <p>이미 수동 1회 검증 완료(2026-05-22). <code>/schedule</code>에 매일 7시 트리거만 박으면 즉시 작동. "능력자 친구가 매일 아침 브리핑" 효과 직격.</p>
+            <div class="gap-trigger">⚡ 즉시 ROI</div>
+          </div>
+
+          <div class="gap-card priority">
+            <div class="gap-head">
+              <span class="gap-rank">#2</span>
+              <h3>video-benchmark 스킬</h3>
+              <span class="badge badge-priority">최우선</span>
+            </div>
+            <div class="gap-meta">2층 · 도메인 스킬 · 예상 2-3시간</div>
+            <p>Cycle-4에서 "벤치마크 우선 빌드"가 v1→v3 패러다임 전환의 핵심. 매번 수동 실행 중 → 한 줄로 호출 가능해야 다음 책 영상 N편 자동 상속. <code>thumbnail-lab</code> 절차를 스킬화.</p>
+            <div class="gap-trigger">📈 시리즈 자산화</div>
+          </div>
+
+          <div class="gap-card">
+            <div class="gap-head">
+              <span class="gap-rank">#3</span>
+              <h3>cd-loop 스킬</h3>
+              <span class="badge badge-second">2순위</span>
+            </div>
+            <div class="gap-meta">2층 · 도메인 스킬 · 예상 1-2시간</div>
+            <p>Cycle-4 v3.6 도달 핵심 패턴. Hook/Tone/Audience 3명 병렬 spawn → 점수+권고 → 수정 → 재검수 2 라운드. 현재 매번 메인 Claude가 수동 진행 중.</p>
+          </div>
+
+          <div class="gap-card">
+            <div class="gap-head">
+              <span class="gap-rank">#4</span>
+              <h3>주간 ai_news_crawl 자동</h3>
+              <span class="badge badge-second">2순위</span>
+            </div>
+            <div class="gap-meta">3층 · 자동 트리거 · 예상 20분</div>
+            <p>현재 "주간 리포트 만들어줘" 직전 수동 실행 중. 매주 월 06:00 자동 → "주간 리포트 만들어줘" 한 줄로 R1 즉시 시작.</p>
+          </div>
+
+          <div class="gap-card">
+            <div class="gap-head">
+              <span class="gap-rank">#5</span>
+              <h3>인스타 자동 업로드</h3>
+              <span class="badge badge-third">3순위</span>
+            </div>
+            <div class="gap-meta">5층 · 발행/배포 · 예상 1시간</div>
+            <p>Zapier 깔려있는데 인스타 액션 미활성. 쇼츠 빌드 → 자동 캡션 → 인스타 예약. 메타 AI 워크플로 영상(W21~W23+)과 직결.</p>
+          </div>
+
+        </div>
+      </section>
+
+      <section id="mapping" class="hsection">
+        <h2>프로젝트 매핑 — 어디서 뭐가 도나</h2>
+        <div class="table-wrap">
+          <table class="map-table">
+            <thead>
+              <tr>
+                <th>프로젝트</th>
+                <th>1층 CLAUDE.md</th>
+                <th>2층 주력 스킬</th>
+                <th>3층 트리거</th>
+                <th>5층 발행</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>📺 유튜브 행글라이터</b></td>
+                <td>youtube-workflow/</td>
+                <td>youtube-workflow, whisper, research-batch</td>
+                <td>publish.bat, ai_news_crawl</td>
+                <td>Vercel + YouTube</td>
+              </tr>
+              <tr>
+                <td><b>📚 위너책쓰기</b></td>
+                <td>스킬 SKILL.md</td>
+                <td>ebook (8모드), book-landing</td>
+                <td class="empty">없음</td>
+                <td>서점 (수동)</td>
+              </tr>
+              <tr>
+                <td><b>🎓 티스토리</b></td>
+                <td>claude-blog/</td>
+                <td>blog-tistory</td>
+                <td>start_chrome.bat</td>
+                <td>티스토리 직접</td>
+              </tr>
+              <tr>
+                <td><b>🏢 인테리어 대행</b></td>
+                <td>스킬 SKILL.md</td>
+                <td>blog, customer-response, press-release</td>
+                <td class="empty">없음</td>
+                <td>고객 채널 직접</td>
+              </tr>
+              <tr>
+                <td><b>🎤 강의</b></td>
+                <td>스킬 SKILL.md</td>
+                <td>claude-lecture, lecture-ppt, lecture-mail</td>
+                <td class="empty">없음</td>
+                <td>노션 + 인스타</td>
+              </tr>
+              <tr>
+                <td><b>🧪 claude-explore</b></td>
+                <td>cycle-1~4 PRD</td>
+                <td>team, research-batch</td>
+                <td>Agent Teams</td>
+                <td>cycle-*/REPORT.html</td>
+              </tr>
+              <tr>
+                <td><b>🎬 책 영상 자동화</b></td>
+                <td>cycle-4 patterns.md</td>
+                <td>thumbnail-lab(수동), Remotion</td>
+                <td class="empty">없음</td>
+                <td>MP4 → (인스타 미연동)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="actions" class="hsection">
+        <h2>다음 액션 — 지도가 알려준 것</h2>
+
+        <div class="action-grid">
+          <div class="action-card go">
+            <div class="action-num">01</div>
+            <h3>daily-brief를 /schedule에 박기</h3>
+            <p class="action-time">⏱ 30분 · 즉시 ROI</p>
+            <p>이미 수동 검증 완료. 매일 아침 7시 브리핑 자동 발사. 능력자 친구가 옆에 있는 효과.</p>
+          </div>
+          <div class="action-card go">
+            <div class="action-num">02</div>
+            <h3>video-benchmark 스킬화</h3>
+            <p class="action-time">⏱ 2-3시간 · 시리즈 자산</p>
+            <p>책 영상 시리즈가 본격 시작되기 전에. thumbnail-lab 수동 절차 → 한 줄.</p>
+          </div>
+          <div class="action-card neutral">
+            <div class="action-num">03</div>
+            <h3>이 지도 분기별 점검</h3>
+            <p class="action-time">⏱ 30분/분기 · 동기부여</p>
+            <p>새 스킬 만들 때마다 이 페이지 업데이트. 빈 칸이 줄어드는 게 보이는 게 동기 부여.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="hsection">
+        <h2>참고 — 개발자 질문과의 연결</h2>
+        <table class="map-table small">
+          <thead>
+            <tr><th>개발자가 비교 중인 도구</th><th>민티 환경에서 같은 역할</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Archon / Symphony / Multica / Vibe Kanban</b><br><small>워크플로 오케스트레이션</small></td>
+              <td>Agent Teams + 사이클 패턴 R0~R6 (claude-explore에서 4회 검증)</td>
+            </tr>
+            <tr>
+              <td><b>GSD2 / Oh My Codex / bkit / Superpowers</b><br><small>코딩 하네스 = 슬래시+훅+스킬 패키지</small></td>
+              <td><code>C:\Projects\my-skills\</code> 15스킬 + 글로벌 CLAUDE.md + Agent Teams</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="small-note">즉, 개발자가 던진 질문은 "이미 있는 도구들로 어떻게 더 큰 하네스를 짤까"의 한 형태. 민티 버전은 "콘텐츠 크리에이터용 5층 하네스"로 번역됨. <b>본질은 같다.</b></p>
+      </section>
+
+      <footer class="hsection footer">
+        <strong>운영 현황 스냅샷 · 2026-05-22</strong><br>
+        · 완료된 사이클: Cycle-1 (컨설팅 진단) / Cycle-3 (영상 자동화 MVP) / Cycle-4 (배예슬 책 영상 v3.6)<br>
+        · 진행 중: Cycle-2 (AI 영상 인사이더 PRO + 메타 영상 1편) / daily-brief 자동화<br>
+        · 다음 세션 미션: MusicGen 셋업, 시리즈 자산화 (patterns.md), 글로벌 CLAUDE.md GPU 정정<br>
+        <br>
+        지도 다음 갱신 권장 시점: 빈 칸 Top 3 채울 때마다 / 새 사이클 종료 시 / 분기 종료 시
+      </footer>
+
+    </main>
+  </div>
+</body>
+</html>
