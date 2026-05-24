@@ -529,66 +529,15 @@ async function boot(retry = false) {
 function setupDragAndDrop() {
   let dragging = null;
   let originalCat = null;  // 드래그 시작 시점 카테고리 (변경 감지용)
+  let saved = false;       // drop에서 저장됐는지 (dragend fallback 판단용)
 
-  document.addEventListener("dragstart", (e) => {
-    const card = e.target.closest(".card[data-pid]");
-    if (!card) return;
-    dragging = card;
-    originalCat = card.dataset.cat;
-    card.classList.add("dragging");
-    $$(".grid").forEach(g => g.classList.add("drag-active"));
-    e.dataTransfer.effectAllowed = "move";
-    try { e.dataTransfer.setData("text/plain", card.dataset.pid); } catch {}
-  });
-
-  document.addEventListener("dragend", () => {
-    if (dragging) dragging.classList.remove("dragging");
-    $$(".grid.drag-active").forEach(g => g.classList.remove("drag-active"));
-    $$(".grid.drag-over").forEach(g => g.classList.remove("drag-over"));
-    dragging = null;
-    originalCat = null;
-  });
-
-  document.addEventListener("dragover", (e) => {
-    if (!dragging) return;
-
-    // 1. 카드 위로 드래그 (위치 결정)
-    const targetCard = e.target.closest(".card[data-pid]");
-    if (targetCard && targetCard !== dragging) {
-      e.preventDefault();
-      const newGrid = targetCard.closest(".grid");
-      const newCat = newGrid?.dataset.gridCat;
-      if (newCat && newCat !== dragging.dataset.cat) {
-        dragging.dataset.cat = newCat;  // 카테고리 시각 갱신
-      }
-      const rect = targetCard.getBoundingClientRect();
-      const before = e.clientY < rect.top + rect.height / 2;
-      const parent = targetCard.parentNode;
-      if (before) parent.insertBefore(dragging, targetCard);
-      else parent.insertBefore(dragging, targetCard.nextSibling);
-      return;
-    }
-
-    // 2. 빈 grid 위로 드래그 (그 카테고리로 이동)
-    const targetGrid = e.target.closest(".grid[data-grid-cat]");
-    if (targetGrid && !targetGrid.contains(dragging)) {
-      e.preventDefault();
-      const newCat = targetGrid.dataset.gridCat;
-      const emptyMsg = targetGrid.querySelector(".empty");
-      if (emptyMsg) emptyMsg.remove();
-      dragging.dataset.cat = newCat;
-      targetGrid.appendChild(dragging);
-    }
-  });
-
-  document.addEventListener("drop", async (e) => {
-    if (!dragging) return;
-    e.preventDefault();
-
-    const movedToOtherCat = dragging.dataset.cat !== originalCat;
-    const pid = dragging.dataset.pid;
-    const newCat = dragging.dataset.cat;
-
+  // 현재 DOM 순서 + 카테고리 변경을 서버에 저장.
+  // card/fromCat을 인자로 받아 drop의 async 진행 중 dragend가 상태를
+  // 비워도 영향받지 않게 한다.
+  async function persistOrder(card, fromCat) {
+    const movedToOtherCat = card.dataset.cat !== fromCat;
+    const pid = card.dataset.pid;
+    const newCat = card.dataset.cat;
     try {
       // 카테고리가 바뀌었으면 먼저 PATCH
       if (movedToOtherCat) {
@@ -613,7 +562,7 @@ function setupDragAndDrop() {
       STATE.data.projects = newOrder.map(id => idMap[id]).filter(Boolean);
 
       if (movedToOtherCat) {
-        toast(`✅ "${dragging.querySelector('.card-title')?.textContent.trim().split(' ')[0]}" 이동됨`);
+        toast(`✅ "${card.querySelector('.card-title')?.textContent.trim().split(' ')[0]}" 이동됨`);
         // 빈 grid 카운트 / 헤더 등 다시 그려야 정확
         await loadProjects();
       } else {
@@ -623,6 +572,71 @@ function setupDragAndDrop() {
       toast("저장 실패: " + err.message, "err");
       await loadProjects();  // 실패 시 서버 상태로 복구
     }
+  }
+
+  document.addEventListener("dragstart", (e) => {
+    const card = e.target.closest(".card[data-pid]");
+    if (!card) return;
+    dragging = card;
+    originalCat = card.dataset.cat;
+    saved = false;
+    card.classList.add("dragging");
+    $$(".grid").forEach(g => g.classList.add("drag-active"));
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", card.dataset.pid); } catch {}
+  });
+
+  document.addEventListener("dragend", () => {
+    const card = dragging;
+    const fromCat = originalCat;
+    if (card) card.classList.remove("dragging");
+    $$(".grid.drag-active").forEach(g => g.classList.remove("drag-active"));
+    $$(".grid.drag-over").forEach(g => g.classList.remove("drag-over"));
+    dragging = null;
+    originalCat = null;
+    // drop이 발생하지 않은 채 드래그가 끝난 경우(카드 사이 간격·빈 영역 등)
+    // 화면만 바뀌고 저장이 누락되지 않도록 여기서 저장한다.
+    if (card && !saved) persistOrder(card, fromCat);
+  });
+
+  document.addEventListener("dragover", (e) => {
+    if (!dragging) return;
+    // 드래그 중에는 항상 drop을 허용해야 어디에 놓아도 drop 이벤트가 발생한다.
+    // (안 그러면 dragover로 화면만 바뀌고 저장이 누락됨)
+    e.preventDefault();
+
+    // 1. 카드 위로 드래그 (위치 결정)
+    const targetCard = e.target.closest(".card[data-pid]");
+    if (targetCard && targetCard !== dragging) {
+      const newGrid = targetCard.closest(".grid");
+      const newCat = newGrid?.dataset.gridCat;
+      if (newCat && newCat !== dragging.dataset.cat) {
+        dragging.dataset.cat = newCat;  // 카테고리 시각 갱신
+      }
+      const rect = targetCard.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      const parent = targetCard.parentNode;
+      if (before) parent.insertBefore(dragging, targetCard);
+      else parent.insertBefore(dragging, targetCard.nextSibling);
+      return;
+    }
+
+    // 2. 빈 grid 위로 드래그 (그 카테고리로 이동)
+    const targetGrid = e.target.closest(".grid[data-grid-cat]");
+    if (targetGrid && !targetGrid.contains(dragging)) {
+      const newCat = targetGrid.dataset.gridCat;
+      const emptyMsg = targetGrid.querySelector(".empty");
+      if (emptyMsg) emptyMsg.remove();
+      dragging.dataset.cat = newCat;
+      targetGrid.appendChild(dragging);
+    }
+  });
+
+  document.addEventListener("drop", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    saved = true;  // dragend fallback 방지
+    persistOrder(dragging, originalCat);
   });
 }
 
