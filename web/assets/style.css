@@ -493,6 +493,26 @@ input, select, textarea {
 }
 .card-menu-btn:hover { background: var(--bg-soft); color: var(--text); }
 
+.card-edit-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity .12s, color .12s, background .12s;
+}
+.card:hover .card-edit-btn { opacity: 0.6; }
+.card-edit-btn:hover {
+  opacity: 1;
+  background: var(--bg-soft);
+  color: var(--accent);
+}
+body.edit-mode .card-edit-btn { display: none; }
+
 .card-note {
   font-size: 12px;
   color: var(--text-dim);
@@ -655,6 +675,31 @@ input, select, textarea {
   background: linear-gradient(180deg, rgba(254, 240, 138, 0.22), var(--bg-surface) 65%);
 }
 body.edit-mode .chip-star { display: none; }
+
+/* 이름 변경(✏) 버튼 - hover 시 별 왼쪽에 작게 */
+.chip-edit {
+  position: absolute;
+  top: 3px;
+  right: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  transition: opacity .12s, color .12s, background .12s;
+}
+.chip:hover .chip-edit { opacity: 0.55; }
+.chip-edit:hover {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--bg-soft);
+}
+body.edit-mode .chip-edit { display: none; }
 .chip.missing { opacity: 0.55; }
 .chip.missing .chip-path { color: var(--danger); text-decoration: line-through; }
 

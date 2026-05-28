@@ -183,6 +183,7 @@ function renderCard(p, cat) {
   card.innerHTML = `
     <div class="card-head">
       <div class="card-title">${p.name} ${deployBadge}${missingBadge}</div>
+      <button class="card-edit-btn" data-action="edit" title="이름 변경">✏</button>
       <button class="card-menu-btn" data-action="delete" title="삭제">×</button>
     </div>
     <div class="card-note">${p.note || ""}</div>
@@ -208,7 +209,11 @@ function renderCard(p, cat) {
       } catch (err) { toast("실패: " + err.message, "err"); }
       return;
     }
-    if (STATE.editMode) return;  // 편집 모드에선 삭제 외 액션 비활성 (실수 방지)
+    if (action === "edit") {
+      openRenameModal("project", p.id, p.name);
+      return;
+    }
+    if (STATE.editMode) return;  // 편집 모드에선 그 외 액션 비활성 (실수 방지)
     if (action === "url") { window.open(p.url, "_blank", "noopener"); return; }
     if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
     btn.disabled = true;
@@ -243,12 +248,20 @@ function renderChip(b, cat) {
   chip.draggable = true;
   Object.entries(categoryStyle(cat)).forEach(([k, v]) => chip.style.setProperty(k, v));
   chip.innerHTML = `
+    <button class="chip-edit" data-bm-edit="${b.id}" title="이름 변경">✏</button>
     <button class="chip-star" data-bm-star="${b.id}" title="${b.starred ? '별표 해제' : '별표 (즐겨찾기)'}">${b.starred ? '★' : '☆'}</button>
     <div class="chip-name"><span class="chip-icon">${icon}</span>${b.name}</div>
     <div class="chip-path">${b.folder}</div>
     <button class="chip-del" data-bm-del="${b.id}" title="바로가기 제거">×</button>
   `;
   chip.addEventListener("click", async (e) => {
+    // 이름 변경 (편집 모드와 무관)
+    const editBtn = e.target.closest("[data-bm-edit]");
+    if (editBtn) {
+      e.stopPropagation();
+      openRenameModal("bookmark", b.id, b.name);
+      return;
+    }
     // 별표 토글 (편집 모드와 무관)
     const starBtn = e.target.closest("[data-bm-star]");
     if (starBtn) {
@@ -510,6 +523,37 @@ function setupSearch() {
       input.value = ""; input.dispatchEvent(new Event("input")); input.blur();
     }
   });
+}
+
+// ===== 이름 변경 모달 (프로젝트 카드 + 미니카드 공통) =====
+let renameTarget = null;
+
+function openRenameModal(kind, id, currentName) {
+  renameTarget = { kind, id };
+  $("#rn-name").value = currentName || "";
+  $("#rename-modal").classList.remove("hidden");
+  // focus / select 는 모달이 보이고 난 뒤
+  setTimeout(() => { $("#rn-name").focus(); $("#rn-name").select(); }, 0);
+}
+
+function setupRenameModal() {
+  async function save() {
+    if (!renameTarget) return;
+    const next = $("#rn-name").value.trim();
+    if (!next) return toast("이름이 비어있어", "err");
+    const endpoint = renameTarget.kind === "bookmark"
+      ? `/api/bookmarks/${renameTarget.id}`
+      : `/api/projects-meta/${renameTarget.id}`;
+    try {
+      await api(endpoint, { method: "PATCH", body: JSON.stringify({ name: next }) });
+      $("#rename-modal").classList.add("hidden");
+      toast(`✏ "${next}" 으로 변경`);
+      renameTarget = null;
+      await loadProjects();
+    } catch (err) { toast("실패: " + err.message, "err"); }
+  }
+  $("#rn-save").addEventListener("click", save);
+  $("#rn-name").addEventListener("keydown", e => { if (e.key === "Enter") save(); });
 }
 
 // ===== 편집 모드 (카드 삭제 안전화) =====
@@ -850,6 +894,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSidePanels();
   setupTokenModal();
   setupBookmarkModal();
+  setupRenameModal();
   setupCategoryModal();
   setupProjectModal();
   setupDragAndDrop();
