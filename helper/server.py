@@ -436,8 +436,10 @@ def update_project(project_id: str, body: ProjectPatch, x_token: Optional[str] =
 def get_bookmarks(x_token: Optional[str] = Header(default=None)):
     require_token(x_token)
     items = load_bookmarks()
-    # 존재 여부 / 수정 시각 / type 자동 부착 (기존 데이터 호환)
+    # 존재 여부 / 수정 시각 / type / starred 자동 부착 (기존 데이터 호환)
     for b in items:
+        if "starred" not in b:
+            b["starred"] = False
         if b.get("type") == "link":
             b["exists"] = True
             b["last_modified"] = None
@@ -518,6 +520,7 @@ class BookmarkPatch(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     note: Optional[str] = None
+    starred: Optional[bool] = None
 
 
 @app.patch("/api/bookmarks/{bookmark_id}")
@@ -531,6 +534,7 @@ def update_bookmark(bookmark_id: str, body: BookmarkPatch, x_token: Optional[str
     if body.name is not None: b["name"] = body.name
     if body.category is not None: b["category"] = body.category
     if body.note is not None: b["note"] = body.note
+    if body.starred is not None: b["starred"] = body.starred
     save_bookmarks(items)
     return b
 

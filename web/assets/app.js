@@ -233,7 +233,9 @@ function renderChip(b, cat) {
   const type = b.type || "folder";
   const icon = CHIP_ICONS[type] || "📁";
   const chip = document.createElement("div");
-  chip.className = "chip chip-" + type + (b.exists === false ? " missing" : "");
+  chip.className = "chip chip-" + type
+    + (b.exists === false ? " missing" : "")
+    + (b.starred ? " starred" : "");
   chip.dataset.searchKey = `${b.name} ${b.folder} ${b.note || ""}`.toLowerCase();
   chip.dataset.bid = b.id;
   chip.dataset.cat = b.category;
@@ -241,11 +243,32 @@ function renderChip(b, cat) {
   chip.draggable = true;
   Object.entries(categoryStyle(cat)).forEach(([k, v]) => chip.style.setProperty(k, v));
   chip.innerHTML = `
+    <button class="chip-star" data-bm-star="${b.id}" title="${b.starred ? '별표 해제' : '별표 (즐겨찾기)'}">${b.starred ? '★' : '☆'}</button>
     <div class="chip-name"><span class="chip-icon">${icon}</span>${b.name}</div>
     <div class="chip-path">${b.folder}</div>
     <button class="chip-del" data-bm-del="${b.id}" title="바로가기 제거">×</button>
   `;
   chip.addEventListener("click", async (e) => {
+    // 별표 토글 (편집 모드와 무관)
+    const starBtn = e.target.closest("[data-bm-star]");
+    if (starBtn) {
+      e.stopPropagation();
+      const next = !b.starred;
+      try {
+        await api(`/api/bookmarks/${b.id}`, { method: "PATCH", body: JSON.stringify({ starred: next }) });
+        b.starred = next;
+        // 같은 bid 의 모든 칩(카테고리 섹션 + 즐겨찾기 섹션)을 부분 갱신
+        $$(`.chip[data-bid="${b.id}"]`).forEach(c => {
+          c.classList.toggle("starred", next);
+          const s = c.querySelector(".chip-star");
+          if (s) { s.textContent = next ? "★" : "☆"; s.title = next ? "별표 해제" : "별표 (즐겨찾기)"; }
+        });
+        renderFavorites();
+        toast(next ? `⭐ ${b.name} 즐겨찾기` : `☆ ${b.name} 즐겨찾기 해제`);
+      } catch (err) { toast("실패: " + err.message, "err"); }
+      return;
+    }
+
     const delBtn = e.target.closest("[data-bm-del]");
     if (delBtn) {
       e.stopPropagation();
@@ -273,6 +296,28 @@ function renderChip(b, cat) {
     } catch (err) { toast("실패: " + err.message, "err"); }
   });
   return chip;
+}
+
+// 별표 모음 섹션: 별표된 항목을 카테고리 무관하게 한 줄로
+function renderFavorites() {
+  const sec = $("#favorites");
+  const grid = $("#favorites-grid");
+  if (!sec || !grid) return;
+  const starred = STATE.bookmarks.filter(b => b.starred);
+  const navCount = $("#nav-fav-count");
+  if (navCount) navCount.textContent = starred.length || "";
+  if (!starred.length) {
+    sec.classList.add("hidden");
+    grid.innerHTML = "";
+    return;
+  }
+  sec.classList.remove("hidden");
+  grid.innerHTML = "";
+  for (const b of starred) {
+    const cat = STATE.data.categories.find(c => c.id === b.category)
+      || { id: b.category, color: "#888", icon: "📁", name: b.category || "기타" };
+    grid.appendChild(renderChip(b, cat));
+  }
 }
 
 function fillBookmarkCatSelect(selectedId) {
@@ -560,6 +605,7 @@ async function loadProjects() {
   renderSidebar();
   fillBookmarkCatSelect();
   renderCategories();
+  renderFavorites();
 }
 
 async function boot(retry = false) {

@@ -390,6 +390,21 @@ input, select, textarea {
   font-size: 13px;
 }
 
+/* ============== 즐겨찾기 ============== */
+.favorites-section {
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.55), rgba(254, 243, 199, 0.08));
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  margin: 0 -8px 28px;
+}
+.favorites-section.hidden { display: none; }
+.favorites-section .section-icon {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.favorites-section .shortcuts { margin-top: 6px; }
+
 /* ============== 그리드 / 카드 ============== */
 .grid {
   display: grid;
@@ -605,10 +620,41 @@ input, select, textarea {
   padding: 0 3px;
   border-radius: 50%;
   opacity: 0;
+  pointer-events: none;  /* 평소 클릭 안 됨, 편집 모드에서만 활성 */
   transition: opacity .1s, color .1s;
 }
-.chip:hover .chip-del { opacity: 0.7; }
-.chip-del:hover { opacity: 1; color: var(--danger); }
+
+/* 별표(즐겨찾기) 버튼 - 평소 우상단에 옅게, hover/별표 시 강조 */
+.chip-star {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.32;
+  cursor: pointer;
+  z-index: 2;
+  transition: opacity .12s, color .12s, transform .1s;
+}
+.chip:hover .chip-star { opacity: 0.75; }
+.chip-star:hover {
+  opacity: 1;
+  transform: scale(1.25);
+}
+.chip.starred .chip-star {
+  opacity: 1;
+  color: #f59e0b;
+  text-shadow: 0 1px 2px rgba(245, 158, 11, 0.4);
+}
+.chip.starred {
+  background: linear-gradient(180deg, rgba(254, 240, 138, 0.22), var(--bg-surface) 65%);
+}
+body.edit-mode .chip-star { display: none; }
 .chip.missing { opacity: 0.55; }
 .chip.missing .chip-path { color: var(--danger); text-decoration: line-through; }
 
@@ -657,6 +703,7 @@ body.edit-mode .chip:hover {
 }
 body.edit-mode .chip-del {
   opacity: 1;
+  pointer-events: auto;
   background: var(--danger);
   color: white;
   font-size: 12px;
