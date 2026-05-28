@@ -624,6 +624,91 @@ input, select, textarea {
   background: var(--cat-bg, var(--accent-bg));
 }
 
+/* ============== 편집 모드 ============== */
+.edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+  white-space: nowrap;
+}
+.edit-btn:hover { color: var(--text); border-color: var(--text-faint); }
+.edit-btn.active {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  font-weight: 600;
+}
+.edit-btn .edit-icon { font-size: 13px; }
+
+/* 편집 모드: 미니 카드 X 항상 강조 (우상단 빨간 배지) */
+body.edit-mode .chip { cursor: default; }
+body.edit-mode .chip:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border);
+}
+body.edit-mode .chip-del {
+  opacity: 1;
+  background: var(--danger);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  top: -7px;
+  right: -7px;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, .35);
+}
+body.edit-mode .chip-del:hover {
+  background: #991b1b;
+  transform: scale(1.12);
+}
+
+/* 편집 모드: 프로젝트 카드 × 도 같은 배지로 */
+body.edit-mode .card { cursor: default; }
+body.edit-mode .card:hover {
+  transform: none;
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+body.edit-mode .card-menu-btn {
+  background: var(--danger);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, .35);
+}
+body.edit-mode .card-menu-btn:hover {
+  background: #991b1b;
+  transform: scale(1.12);
+}
+
+/* 편집 모드: 카드 아래쪽 액션 버튼(폴더/cldp/사이트)은 비활성 */
+body.edit-mode .card-actions {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 /* ============== 사이드 패널 ============== */
 .side-panel {
   position: fixed;

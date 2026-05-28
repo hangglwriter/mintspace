@@ -10,6 +10,7 @@ const STATE = {
   bookmarks: [],
   connected: false,
   editingCatId: null,  // 카테고리 편집 모달용
+  editMode: false,     // 편집 모드 (카드 삭제용, ESC로 해제)
 };
 
 // ===== 유틸 =====
@@ -207,6 +208,7 @@ function renderCard(p, cat) {
       } catch (err) { toast("실패: " + err.message, "err"); }
       return;
     }
+    if (STATE.editMode) return;  // 편집 모드에선 삭제 외 액션 비활성 (실수 방지)
     if (action === "url") { window.open(p.url, "_blank", "noopener"); return; }
     if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
     btn.disabled = true;
@@ -250,6 +252,7 @@ function renderChip(b, cat) {
       } catch (err) { toast("실패: " + err.message, "err"); }
       return;
     }
+    if (STATE.editMode) return;  // 편집 모드에선 본문 클릭 무시 (X만 활성)
     if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
     try {
       await api("/api/open-folder", { method: "POST", body: JSON.stringify({ folder: b.folder, project_id: "bm-" + b.id }) });
@@ -447,6 +450,27 @@ function setupSearch() {
       e.preventDefault(); input.focus();
     } else if (e.key === "Escape" && document.activeElement === input) {
       input.value = ""; input.dispatchEvent(new Event("input")); input.blur();
+    }
+  });
+}
+
+// ===== 편집 모드 (카드 삭제 안전화) =====
+function setupEditMode() {
+  const btn = $("#edit-toggle");
+  function toggle(force) {
+    const next = (typeof force === "boolean") ? force : !STATE.editMode;
+    STATE.editMode = next;
+    document.body.classList.toggle("edit-mode", next);
+    btn.classList.toggle("active", next);
+    btn.innerHTML = next
+      ? `<span class="edit-icon">✓</span><span class="edit-label">편집 끝</span>`
+      : `<span class="edit-icon">✎</span><span class="edit-label">편집</span>`;
+  }
+  btn.addEventListener("click", () => toggle());
+  // ESC로 편집 모드 빠져나오기 (검색 input 활성 아닐 때만)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && STATE.editMode && document.activeElement.tagName !== "INPUT") {
+      toggle(false);
     }
   });
 }
@@ -763,6 +787,7 @@ function setupChipDrag() {
 
 document.addEventListener("DOMContentLoaded", () => {
   setupSearch();
+  setupEditMode();
   setupSidePanels();
   setupTokenModal();
   setupBookmarkModal();
