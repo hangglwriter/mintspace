@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026052807" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026052808" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -181,10 +181,12 @@
 
   <div id="rename-modal" class="modal hidden">
     <div class="modal-inner">
-      <h3>✏ 이름 변경</h3>
-      <label>새 이름</label>
+      <h3>✏ 카드 편집</h3>
+      <label>이름</label>
       <input id="rn-name" type="text" />
-      <p class="hint-tiny">실제 폴더/파일 이름은 안 바뀌고, 민티스페이스에서 보이는 표시 이름만 바뀌어.</p>
+      <label>카테고리</label>
+      <select id="rn-category"></select>
+      <p class="hint-tiny">표시 이름과 카테고리만 바뀌고, 실제 폴더/파일은 그대로.</p>
       <div class="modal-actions">
         <button class="link-btn" onclick="document.getElementById('rename-modal').classList.add('hidden')">취소</button>
         <button id="rn-save" class="primary-btn">저장</button>
@@ -209,6 +211,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026052807"></script>
+  <script src="/assets/app.js?v=2026052808"></script>
 </body>
 </html>

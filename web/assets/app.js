@@ -210,7 +210,7 @@ function renderCard(p, cat) {
       return;
     }
     if (action === "edit") {
-      openRenameModal("project", p.id, p.name);
+      openRenameModal("project", p.id, p.name, p.category);
       return;
     }
     if (STATE.editMode) return;  // 편집 모드에선 그 외 액션 비활성 (실수 방지)
@@ -259,7 +259,7 @@ function renderChip(b, cat) {
     const editBtn = e.target.closest("[data-bm-edit]");
     if (editBtn) {
       e.stopPropagation();
-      openRenameModal("bookmark", b.id, b.name);
+      openRenameModal("bookmark", b.id, b.name, b.category);
       return;
     }
     // 별표 토글 (편집 모드와 무관)
@@ -525,12 +525,22 @@ function setupSearch() {
   });
 }
 
-// ===== 이름 변경 모달 (프로젝트 카드 + 미니카드 공통) =====
+// ===== 카드 편집 모달 (이름 + 카테고리 공통) =====
 let renameTarget = null;
 
-function openRenameModal(kind, id, currentName) {
+function fillRenameCatSelect(selectedId) {
+  const sel = $("#rn-category");
+  if (!sel) return;
+  sel.innerHTML = STATE.data.categories
+    .map(c => `<option value="${c.id}">${c.icon || "📁"} ${c.name}</option>`)
+    .join("");
+  if (selectedId) sel.value = selectedId;
+}
+
+function openRenameModal(kind, id, currentName, currentCategory) {
   renameTarget = { kind, id };
   $("#rn-name").value = currentName || "";
+  fillRenameCatSelect(currentCategory);
   $("#rename-modal").classList.remove("hidden");
   // focus / select 는 모달이 보이고 난 뒤
   setTimeout(() => { $("#rn-name").focus(); $("#rn-name").select(); }, 0);
@@ -540,14 +550,18 @@ function setupRenameModal() {
   async function save() {
     if (!renameTarget) return;
     const next = $("#rn-name").value.trim();
+    const newCat = $("#rn-category").value;
     if (!next) return toast("이름이 비어있어", "err");
     const endpoint = renameTarget.kind === "bookmark"
       ? `/api/bookmarks/${renameTarget.id}`
       : `/api/projects-meta/${renameTarget.id}`;
     try {
-      await api(endpoint, { method: "PATCH", body: JSON.stringify({ name: next }) });
+      await api(endpoint, {
+        method: "PATCH",
+        body: JSON.stringify({ name: next, category: newCat }),
+      });
       $("#rename-modal").classList.add("hidden");
-      toast(`✏ "${next}" 으로 변경`);
+      toast(`✏ "${next}" 저장됨`);
       renameTarget = null;
       await loadProjects();
     } catch (err) { toast("실패: " + err.message, "err"); }
@@ -888,6 +902,84 @@ function setupChipDrag() {
   });
 }
 
+// ===== 사이드바 카테고리 = 드롭존 (멀리 있는 카테고리로 빠르게 이동) =====
+// drop 시 DOM 만 옮기고, 카드/칩 dnd 의 dragend 가 저장을 마무리한다.
+function setupSidebarDropZones() {
+  const nav = $("#nav-categories");
+  if (!nav) return;
+
+  nav.addEventListener("dragover", (e) => {
+    const item = e.target.closest(".nav-item[data-cat]");
+    if (!item) return;
+    if (!document.querySelector(".chip.dragging, .card.dragging")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    item.classList.add("drop-target");
+  });
+
+  nav.addEventListener("dragleave", (e) => {
+    const item = e.target.closest(".nav-item[data-cat]");
+    if (item && !item.contains(e.relatedTarget)) item.classList.remove("drop-target");
+  });
+
+  nav.addEventListener("drop", (e) => {
+    const item = e.target.closest(".nav-item[data-cat]");
+    if (!item) return;
+    e.preventDefault();
+    e.stopPropagation();
+    item.classList.remove("drop-target");
+
+    const newCat = item.dataset.cat;
+    const dragChip = document.querySelector(".chip.dragging");
+    const dragCard = document.querySelector(".card.dragging");
+
+    if (dragChip) {
+      dragChip.dataset.cat = newCat;
+      const targetSc = document.querySelector(`.shortcuts[data-sc-cat="${newCat}"]`);
+      if (targetSc) targetSc.appendChild(dragChip);
+    } else if (dragCard) {
+      dragCard.dataset.cat = newCat;
+      const targetGrid = document.querySelector(`.grid[data-grid-cat="${newCat}"]`);
+      if (targetGrid) {
+        const empty = targetGrid.querySelector(".empty");
+        if (empty) empty.remove();
+        targetGrid.appendChild(dragCard);
+      }
+    }
+    // dragend → persistOrder / persistChipOrder 가 PATCH + 순서 저장 처리
+  });
+}
+
+// ===== 드래그 중 화면 가장자리에서 자동 스크롤 =====
+function setupAutoScroll() {
+  const EDGE = 80;        // 가장자리 80px
+  const MAX_SPEED = 18;   // px/frame
+  let delta = 0;
+  let handle = null;
+  function tick() {
+    if (!delta) { handle = null; return; }
+    window.scrollBy(0, delta);
+    handle = requestAnimationFrame(tick);
+  }
+  function start() { if (!handle) handle = requestAnimationFrame(tick); }
+  function stop() {
+    if (handle) cancelAnimationFrame(handle);
+    handle = null;
+    delta = 0;
+  }
+  document.addEventListener("dragover", (e) => {
+    if (!document.querySelector(".chip.dragging, .card.dragging")) { stop(); return; }
+    const y = e.clientY;
+    const h = window.innerHeight;
+    if (y < EDGE) delta = -MAX_SPEED * (1 - y / EDGE);
+    else if (y > h - EDGE) delta = MAX_SPEED * (1 - (h - y) / EDGE);
+    else delta = 0;
+    if (delta) start(); else stop();
+  });
+  document.addEventListener("dragend", stop);
+  document.addEventListener("drop", stop);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   setupSearch();
   setupEditMode();
@@ -899,5 +991,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupProjectModal();
   setupDragAndDrop();
   setupChipDrag();
+  setupSidebarDropZones();
+  setupAutoScroll();
   boot();
 });
