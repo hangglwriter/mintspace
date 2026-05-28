@@ -169,7 +169,9 @@ function renderCategories() {
 
 function renderCard(p, cat) {
   const card = document.createElement("div");
-  card.className = "card" + (p.exists === false ? " missing" : "");
+  card.className = "card"
+    + (p.exists === false ? " missing" : "")
+    + (p.starred ? " starred" : "");
   card.dataset.searchKey = `${p.name} ${p.note || ""} ${p.id} ${cat.name}`.toLowerCase();
   card.dataset.pid = p.id;
   card.dataset.cat = p.category;
@@ -183,6 +185,7 @@ function renderCard(p, cat) {
   card.innerHTML = `
     <div class="card-head">
       <div class="card-title">${p.name} ${deployBadge}${missingBadge}</div>
+      <button class="card-star" data-action="star" title="${p.starred ? '별표 해제' : '별표 (즐겨찾기)'}">${p.starred ? '★' : '☆'}</button>
       <button class="card-edit-btn" data-action="edit" title="이름 변경">✏</button>
       <button class="card-menu-btn" data-action="delete" title="삭제">×</button>
     </div>
@@ -200,6 +203,23 @@ function renderCard(p, cat) {
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
     const action = btn.dataset.action;
+    if (action === "star") {
+      const next = !p.starred;
+      try {
+        await api(`/api/projects-meta/${p.id}`, { method: "PATCH", body: JSON.stringify({ starred: next }) });
+        p.starred = next;
+        // 같은 pid 의 카드(메인) + 즐겨찾기 chip 모두 갱신
+        $$(`.card[data-pid="${p.id}"], .chip[data-pid="${p.id}"]`).forEach(c => {
+          c.classList.toggle("starred", next);
+          const s = c.querySelector(".card-star, .chip-star");
+          if (s) { s.textContent = next ? "★" : "☆"; s.title = next ? "별표 해제" : "별표 (즐겨찾기)"; }
+        });
+        renderFavorites();
+        loadStarSuggestions();
+        toast(next ? `⭐ ${p.name} 즐겨찾기` : `☆ ${p.name} 해제`);
+      } catch (err) { toast("실패: " + err.message, "err"); }
+      return;
+    }
     if (action === "delete") {
       if (!confirm(`프로젝트 "${p.name}" 삭제? (폴더는 그대로)`)) return;
       try {
@@ -311,22 +331,74 @@ function renderChip(b, cat) {
   return chip;
 }
 
-// 별표 모음 섹션: 별표된 항목을 카테고리 무관하게 한 줄로
+// 프로젝트를 즐겨찾기 섹션용 컴팩트 칩으로 (큰 카드 아닌 미니카드 형태)
+function renderProjectChip(p, cat) {
+  const chip = document.createElement("div");
+  chip.className = "chip chip-project starred"
+    + (p.exists === false ? " missing" : "");
+  chip.dataset.searchKey = `${p.name} ${p.folder} ${p.note || ""}`.toLowerCase();
+  chip.dataset.pid = p.id;
+  chip.dataset.cat = p.category;
+  chip.title = p.folder + (p.exists === false ? "  (폴더 없음)" : "");
+  Object.entries(categoryStyle(cat)).forEach(([k, v]) => chip.style.setProperty(k, v));
+  chip.innerHTML = `
+    <button class="chip-star" data-pj-star="${p.id}" title="별표 해제">★</button>
+    <div class="chip-name"><span class="chip-icon">📦</span>${p.name}</div>
+    <div class="chip-path">${p.folder}</div>
+  `;
+  chip.addEventListener("click", async (e) => {
+    const starBtn = e.target.closest("[data-pj-star]");
+    if (starBtn) {
+      e.stopPropagation();
+      try {
+        await api(`/api/projects-meta/${p.id}`, { method: "PATCH", body: JSON.stringify({ starred: false }) });
+        p.starred = false;
+        // 같은 pid 의 메인 카드 갱신
+        $$(`.card[data-pid="${p.id}"]`).forEach(c => {
+          c.classList.remove("starred");
+          const s = c.querySelector(".card-star");
+          if (s) { s.textContent = "☆"; s.title = "별표 (즐겨찾기)"; }
+        });
+        renderFavorites();
+        loadStarSuggestions();
+        toast(`☆ ${p.name} 해제`);
+      } catch (err) { toast("실패: " + err.message, "err"); }
+      return;
+    }
+    if (STATE.editMode) return;
+    if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
+    try {
+      await api("/api/open-folder", { method: "POST", body: JSON.stringify({ folder: p.folder, project_id: p.id }) });
+      toast(`📂 ${p.name} 열림`);
+    } catch (err) { toast("실패: " + err.message, "err"); }
+  });
+  return chip;
+}
+
+// 별표 모음 섹션: 프로젝트(📦) + 미니카드(📁/📄/🔗) 한 줄에 카테고리 무관 모음
 function renderFavorites() {
   const sec = $("#favorites");
   const grid = $("#favorites-grid");
   if (!sec || !grid) return;
-  const starred = STATE.bookmarks.filter(b => b.starred);
+  const starredBm = STATE.bookmarks.filter(b => b.starred);
+  const starredPj = (STATE.data.projects || []).filter(p => p.starred);
+  const total = starredBm.length + starredPj.length;
   const navCount = $("#nav-fav-count");
-  if (navCount) navCount.textContent = starred.length || "";
-  if (!starred.length) {
+  if (navCount) navCount.textContent = total || "";
+  if (total === 0) {
     sec.classList.add("hidden");
     grid.innerHTML = "";
     return;
   }
   sec.classList.remove("hidden");
   grid.innerHTML = "";
-  for (const b of starred) {
+  // 프로젝트 먼저 (작업 중인 게 우선 보임)
+  for (const p of starredPj) {
+    const cat = STATE.data.categories.find(c => c.id === p.category)
+      || { id: p.category, color: "#888", icon: "📁", name: p.category || "기타" };
+    grid.appendChild(renderProjectChip(p, cat));
+  }
+  for (const b of starredBm) {
     const cat = STATE.data.categories.find(c => c.id === b.category)
       || { id: b.category, color: "#888", icon: "📁", name: b.category || "기타" };
     grid.appendChild(renderChip(b, cat));
@@ -605,10 +677,10 @@ function openSuggestModal() {
     container.innerHTML = list.map(it => {
       const cat = STATE.data.categories.find(c => c.id === it.category);
       const catLabel = cat ? `${cat.icon || ""} ${cat.name}` : (it.category || "");
-      const icon = (CHIP_ICONS[it.type] || "📁");
+      const icon = it.kind === "project" ? "📦" : (CHIP_ICONS[it.type] || "📁");
       const meta = it.count ? `${catLabel} · ${it.count}회` : catLabel;
       const cb = action
-        ? `<input type="checkbox" data-ss-action="${action}" data-ss-id="${it.id}" checked />`
+        ? `<input type="checkbox" data-ss-action="${action}" data-ss-id="${it.id}" data-ss-kind="${it.kind || 'bookmark'}" checked />`
         : '<span class="ss-bullet">·</span>';
       return `
         <label class="ss-item">
@@ -641,9 +713,11 @@ function setupStarSuggest() {
     for (const cb of checks) {
       const action = cb.dataset.ssAction;
       const id = cb.dataset.ssId;
+      const kind = cb.dataset.ssKind || "bookmark";
       const starred = action === "add";
+      const endpoint = kind === "project" ? `/api/projects-meta/${id}` : `/api/bookmarks/${id}`;
       try {
-        await api(`/api/bookmarks/${id}`, { method: "PATCH", body: JSON.stringify({ starred }) });
+        await api(endpoint, { method: "PATCH", body: JSON.stringify({ starred }) });
         if (starred) added++; else removed++;
       } catch { failed++; }
     }

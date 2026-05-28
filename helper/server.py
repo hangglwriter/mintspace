@@ -156,6 +156,7 @@ class ProjectPatch(BaseModel):
     folder: Optional[str] = None
     url: Optional[str] = None
     note: Optional[str] = None
+    starred: Optional[bool] = None
 
 
 def load_projects_data() -> dict:
@@ -219,8 +220,10 @@ def get_projects(x_token: Optional[str] = Header(default=None)):
     if not PROJECTS_FILE.exists():
         return {"categories": [], "projects": [], "links": []}
     data = json.loads(PROJECTS_FILE.read_text(encoding="utf-8"))
-    # 각 프로젝트에 폴더 메타 추가
+    # 각 프로젝트에 폴더 메타 + starred 자동 부착 (기존 데이터 호환)
     for p in data.get("projects", []):
+        if "starred" not in p:
+            p["starred"] = False
         try:
             f = Path(p["folder"])
             p["exists"] = f.exists()
@@ -428,6 +431,7 @@ def update_project(project_id: str, body: ProjectPatch, x_token: Optional[str] =
     if body.folder is not None: p["folder"] = body.folder
     if body.url is not None: p["url"] = body.url
     if body.note is not None: p["note"] = body.note
+    if body.starred is not None: p["starred"] = body.starred
     save_projects_data(data)
     append_log(f"✏ 프로젝트 수정: {p['name']}")
     return p

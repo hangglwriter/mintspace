@@ -520,6 +520,37 @@ input, select, textarea {
 }
 body.edit-mode .card-edit-btn { display: none; }
 
+/* 프로젝트 카드 별표 (즐겨찾기 토글) - card-edit-btn 옆 */
+.card-star {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.35;
+  cursor: pointer;
+  transition: opacity .12s, color .12s, transform .1s;
+}
+.card:hover .card-star { opacity: 0.7; }
+.card-star:hover {
+  opacity: 1;
+  transform: scale(1.18);
+}
+.card.starred .card-star {
+  opacity: 1;
+  color: #f59e0b;
+  text-shadow: 0 1px 2px rgba(245, 158, 11, 0.45);
+}
+.card.starred {
+  background: linear-gradient(180deg, rgba(254, 240, 138, 0.18), var(--bg-surface) 60%);
+}
+body.edit-mode .card-star { display: none; }
+
+/* 프로젝트 칩 (즐겨찾기 섹션에서만 사용) - 아이콘 톤 살짝 다르게 */
+.chip-project .chip-icon { opacity: 1; }
+
 .card-note {
   font-size: 12px;
   color: var(--text-dim);

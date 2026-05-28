@@ -66,23 +66,33 @@ def suggest(bookmarks: list, projects: list | None = None,
     bm_by_id = {b["id"]: b for b in bookmarks}
     pj_by_id = {p["id"]: p for p in (projects or [])}
 
-    # 1) 별표 추가 추천
+    # 1) 별표 추가 추천 (bookmark + project 통합 - kind 로 구분)
     star_rec = []
     for (kind, id_), n in cnt.most_common():
-        if kind != "bookmark":
-            continue
         if n < threshold:
             break
-        b = bm_by_id.get(id_)
-        if not b or b.get("starred"):
-            continue
-        star_rec.append({
-            "id": id_,
-            "name": b.get("name", id_),
-            "category": b.get("category"),
-            "type": b.get("type", "folder"),
-            "count": n,
-        })
+        if kind == "bookmark":
+            b = bm_by_id.get(id_)
+            if not b or b.get("starred"):
+                continue
+            star_rec.append({
+                "kind": "bookmark", "id": id_,
+                "name": b.get("name", id_),
+                "category": b.get("category"),
+                "type": b.get("type", "folder"),
+                "count": n,
+            })
+        elif kind == "project":
+            p = pj_by_id.get(id_)
+            if not p or p.get("starred"):
+                continue
+            star_rec.append({
+                "kind": "project", "id": id_,
+                "name": p.get("name", id_),
+                "category": p.get("category"),
+                "type": "project",  # 프로젝트는 별도 아이콘
+                "count": n,
+            })
 
     # 2) 별표 해제 추천: 별표돼 있는데 days 일간 0번
     unstar_rec = []
@@ -92,14 +102,26 @@ def suggest(bookmarks: list, projects: list | None = None,
         n = cnt.get(("bookmark", b["id"]), 0)
         if n == 0:
             unstar_rec.append({
-                "id": b["id"],
+                "kind": "bookmark", "id": b["id"],
                 "name": b.get("name", b["id"]),
                 "category": b.get("category"),
                 "type": b.get("type", "folder"),
                 "count": 0,
             })
+    for p in (projects or []):
+        if not p.get("starred"):
+            continue
+        n = cnt.get(("project", p["id"]), 0)
+        if n == 0:
+            unstar_rec.append({
+                "kind": "project", "id": p["id"],
+                "name": p.get("name", p["id"]),
+                "category": p.get("category"),
+                "type": "project",
+                "count": 0,
+            })
 
-    # 3) 자주 작업한 프로젝트 TOP (정보 표시용 - 별표 미지원이라 적용 불가)
+    # 3) 자주 작업한 프로젝트 TOP (정보 표시 - 별표 여부 무관)
     project_top = []
     for (kind, id_), n in cnt.most_common():
         if kind != "project":
@@ -112,6 +134,7 @@ def suggest(bookmarks: list, projects: list | None = None,
             "name": p.get("name", id_),
             "category": p.get("category"),
             "count": n,
+            "starred": p.get("starred", False),
         })
         if len(project_top) >= project_top_n:
             break
