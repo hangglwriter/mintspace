@@ -22,8 +22,10 @@
 - [x] **별표/즐겨찾기** - 미니카드 우상단 ☆ 토글 → 페이지 최상단 노란 즐겨찾기 섹션에 카테고리 무관 모임. 사이드바 ⭐ 카운트
 - [x] **이름 + 카테고리 편집** - 카드 hover 시 ✏ → 모달에서 표시 이름 + 카테고리 둘 다 변경 (실제 폴더명은 안 바뀜)
 - [x] **카테고리 옮기기 3종**: ① 사이드바 카테고리가 드롭존 ② 드래그 중 화면 가장자리(80px) 자동 스크롤 ③ 편집 모달에서 카테고리 드롭다운
+- [x] **자동 별표 추천** (`helper/auto_star.py`) - 최근 7일 logs 분석. 자주 여는 bookmark (≥5번) 별표 추천 + 별표 있는데 7일간 0번 해제 추천 + 자주 작업한 프로젝트 TOP 5 인사이트. 상단 [💡 추천 N] 버튼 → 모달
 
 ### 다음 할 것
+- [ ] **프로젝트도 starred 지원** - 지금은 미니카드(bookmark)만 별표. 자주 여는 건 프로젝트 카드가 많음 (전자책 11회, 티스토리 7회 등). projects-meta PATCH starred + ☆ 버튼 + 즐겨찾기 섹션에 컴팩트 렌더 통합
 - [ ] 바탕화면 스캔에 파일 포함 옵션 (지금은 폴더만 일괄 수집; 파일은 모달로 개별 추가)
 - [ ] 즐겨찾기 섹션 카드도 드래그로 카테고리/순서 변경
 - [ ] 카드 노트(메모) 편집 UI - 서버 PATCH note 는 이미 지원, 모달 UI 만 추가
@@ -36,6 +38,7 @@
 - **카테고리**: POST `/api/categories` · PATCH/DELETE `/api/categories/{id}`
 - **바로가기(미니카드)**: GET/POST `/api/bookmarks` · PATCH/DELETE `/api/bookmarks/{id}` · POST `/api/bookmarks-order` · POST `/api/bookmarks-import` (바탕화면 스캔)
 - **액션**: POST `/api/open-folder` (폴더/파일 둘 다 `os.startfile`) · POST `/api/launch-terminal` (cldp)
+- **추천**: GET `/api/star-suggestions?days=7&threshold=5` (`helper/auto_star.py` logs 분석)
 - **인증**: POST `/api/token-bootstrap` (로컬 IP 에서만 자동 발급)
 - **헬스**: GET `/api/health`
 

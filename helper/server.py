@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import desktop_scan
+import auto_star
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -584,6 +585,24 @@ def import_desktop(x_token: Optional[str] = Header(default=None)):
     save_bookmarks(items)
     append_log(f"🖥 바탕화면 가져오기: {added}개 추가 · {skipped}개 중복 스킵")
     return {"added": added, "skipped": skipped, "total": len(items)}
+
+
+@app.get("/api/star-suggestions")
+def star_suggestions(
+    days: int = 7,
+    threshold: int = 5,
+    x_token: Optional[str] = Header(default=None),
+):
+    """logs 분석으로 자동 별표 추천 + 자주 작업한 프로젝트 TOP."""
+    require_token(x_token)
+    bookmarks = load_bookmarks()
+    proj_data = load_projects_data()
+    return auto_star.suggest(
+        bookmarks,
+        proj_data.get("projects", []),
+        days=days,
+        threshold=threshold,
+    )
 
 
 @app.post("/api/bookmarks-order")

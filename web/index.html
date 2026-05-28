@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026052808" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026052901" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -68,6 +68,10 @@
           <input id="search-input" type="text" placeholder="프로젝트 검색..." autocomplete="off" />
           <kbd>/</kbd>
         </div>
+        <button id="suggest-btn" class="suggest-btn hidden" title="자주 여는 폴더 자동 별표 추천 (최근 7일 로그 기반)">
+          <span>💡</span>
+          <span class="suggest-label">추천 <strong id="suggest-count">0</strong></span>
+        </button>
         <button id="edit-toggle" class="edit-btn" title="편집 모드 - 카드/폴더 삭제용 (ESC로 해제)">
           <span class="edit-icon">✎</span>
           <span class="edit-label">편집</span>
@@ -179,6 +183,33 @@
     </div>
   </div>
 
+  <div id="star-suggest-modal" class="modal hidden">
+    <div class="modal-inner modal-wide">
+      <h3>💡 별표 자동 추천</h3>
+      <p class="hint-tiny">최근 <span id="ss-days">7</span>일 작업 로그 분석 · 체크박스로 골라서 적용</p>
+
+      <div id="ss-add-section" class="ss-section">
+        <h4>⭐ 자주 여는데 별표 안 됨 <span class="ss-count" id="ss-add-count">0</span></h4>
+        <div id="ss-add-list" class="ss-list"></div>
+      </div>
+
+      <div id="ss-remove-section" class="ss-section">
+        <h4>☆ 별표 있는데 안 씀 <span class="ss-count" id="ss-remove-count">0</span></h4>
+        <div id="ss-remove-list" class="ss-list"></div>
+      </div>
+
+      <div id="ss-projects-section" class="ss-section">
+        <h4>📊 자주 작업한 프로젝트 TOP <span class="ss-note">참고용 · 자동 적용 X</span></h4>
+        <div id="ss-projects-list" class="ss-list ss-info"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="link-btn" onclick="document.getElementById('star-suggest-modal').classList.add('hidden')">닫기</button>
+        <button id="ss-apply" class="primary-btn">선택 항목 적용</button>
+      </div>
+    </div>
+  </div>
+
   <div id="rename-modal" class="modal hidden">
     <div class="modal-inner">
       <h3>✏ 카드 편집</h3>
@@ -211,6 +242,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026052808"></script>
+  <script src="/assets/app.js?v=2026052901"></script>
 </body>
 </html>

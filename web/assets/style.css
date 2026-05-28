@@ -746,6 +746,115 @@ body.edit-mode .chip-edit { display: none; }
 }
 .edit-btn .edit-icon { font-size: 13px; }
 
+/* 자동 별표 추천 버튼 (편집 버튼 옆) */
+.suggest-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.85), rgba(254, 243, 199, 0.5));
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--r-sm);
+  color: #92400e;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, transform .1s;
+}
+.suggest-btn:hover {
+  background: rgba(254, 243, 199, 1);
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+}
+.suggest-btn.hidden { display: none; }
+.suggest-btn strong { font-weight: 700; }
+
+/* 추천 모달 - 좀 더 넓게 + 내부 섹션 */
+.modal-inner.modal-wide { max-width: 620px; }
+.ss-section { margin-top: 16px; }
+.ss-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ss-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 1px 7px;
+  background: var(--bg-soft);
+  color: var(--text-dim);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.ss-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-weight: 400;
+  margin-left: auto;
+}
+.ss-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.ss-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.ss-item:hover {
+  background: var(--bg-soft);
+  border-color: var(--text-faint);
+}
+.ss-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.ss-icon { flex-shrink: 0; font-size: 13px; }
+.ss-name {
+  flex: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.ss-bullet {
+  color: var(--text-faint);
+  width: 14px;
+  text-align: center;
+}
+.ss-list.ss-info .ss-item { cursor: default; }
+.ss-list.ss-info .ss-item:hover { background: var(--bg-surface); border-color: var(--border); }
+.ss-empty {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
 /* 편집 모드: 미니 카드 X 항상 강조 (우상단 빨간 배지) */
 body.edit-mode .chip { cursor: default; }
 body.edit-mode .chip:hover {

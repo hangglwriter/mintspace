@@ -570,6 +570,92 @@ function setupRenameModal() {
   $("#rn-name").addEventListener("keydown", e => { if (e.key === "Enter") save(); });
 }
 
+// ===== 자주 여는 폴더 자동 별표 추천 (logs 분석) =====
+async function loadStarSuggestions() {
+  if (!STATE.connected) return;
+  try {
+    const r = await api("/api/star-suggestions?days=7&threshold=5");
+    STATE.suggestions = r;
+    const apply = r.star_recommend.length + r.unstar_recommend.length;
+    const btn = $("#suggest-btn");
+    if (!btn) return;
+    if (apply === 0 && r.project_top.length === 0) {
+      btn.classList.add("hidden");
+    } else {
+      btn.classList.remove("hidden");
+      $("#suggest-count").textContent = apply;
+    }
+  } catch (e) {
+    console.error("추천 로딩 실패", e);
+  }
+}
+
+function openSuggestModal() {
+  const data = STATE.suggestions;
+  if (!data) return;
+  $("#ss-days").textContent = data.days;
+  $("#ss-add-count").textContent = data.star_recommend.length;
+  $("#ss-remove-count").textContent = data.unstar_recommend.length;
+
+  function renderItems(list, action, container) {
+    if (!list.length) {
+      container.innerHTML = '<div class="ss-empty">없음</div>';
+      return;
+    }
+    container.innerHTML = list.map(it => {
+      const cat = STATE.data.categories.find(c => c.id === it.category);
+      const catLabel = cat ? `${cat.icon || ""} ${cat.name}` : (it.category || "");
+      const icon = (CHIP_ICONS[it.type] || "📁");
+      const meta = it.count ? `${catLabel} · ${it.count}회` : catLabel;
+      const cb = action
+        ? `<input type="checkbox" data-ss-action="${action}" data-ss-id="${it.id}" checked />`
+        : '<span class="ss-bullet">·</span>';
+      return `
+        <label class="ss-item">
+          ${cb}
+          <span class="ss-icon">${icon}</span>
+          <span class="ss-name">${it.name}</span>
+          <span class="ss-meta">${meta}</span>
+        </label>`;
+    }).join("");
+  }
+  renderItems(data.star_recommend, "add", $("#ss-add-list"));
+  renderItems(data.unstar_recommend, "remove", $("#ss-remove-list"));
+  renderItems(data.project_top, null, $("#ss-projects-list"));
+
+  $("#star-suggest-modal").classList.remove("hidden");
+}
+
+function setupStarSuggest() {
+  const btn = $("#suggest-btn");
+  if (btn) btn.addEventListener("click", openSuggestModal);
+
+  const apply = $("#ss-apply");
+  if (apply) apply.addEventListener("click", async () => {
+    const checks = $$(".ss-item input[data-ss-action]:checked");
+    if (!checks.length) {
+      $("#star-suggest-modal").classList.add("hidden");
+      return;
+    }
+    let added = 0, removed = 0, failed = 0;
+    for (const cb of checks) {
+      const action = cb.dataset.ssAction;
+      const id = cb.dataset.ssId;
+      const starred = action === "add";
+      try {
+        await api(`/api/bookmarks/${id}`, { method: "PATCH", body: JSON.stringify({ starred }) });
+        if (starred) added++; else removed++;
+      } catch { failed++; }
+    }
+    $("#star-suggest-modal").classList.add("hidden");
+    let msg = `✓ 별표 ${added}개 추가 · ${removed}개 해제`;
+    if (failed) msg += ` · ${failed}개 실패`;
+    toast(msg);
+    await loadProjects();
+    await loadStarSuggestions();
+  });
+}
+
 // ===== 편집 모드 (카드 삭제 안전화) =====
 function setupEditMode() {
   const btn = $("#edit-toggle");
@@ -664,6 +750,7 @@ async function loadProjects() {
   fillBookmarkCatSelect();
   renderCategories();
   renderFavorites();
+  loadStarSuggestions();  // 비동기, 별도 fetch (UI 막지 않음)
 }
 
 async function boot(retry = false) {
@@ -987,6 +1074,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTokenModal();
   setupBookmarkModal();
   setupRenameModal();
+  setupStarSuggest();
   setupCategoryModal();
   setupProjectModal();
   setupDragAndDrop();
