@@ -436,41 +436,81 @@ def update_project(project_id: str, body: ProjectPatch, x_token: Optional[str] =
 def get_bookmarks(x_token: Optional[str] = Header(default=None)):
     require_token(x_token)
     items = load_bookmarks()
-    # 폴더 존재 여부 / 수정 시각 부착
+    # 존재 여부 / 수정 시각 / type 자동 부착 (기존 데이터 호환)
     for b in items:
+        if b.get("type") == "link":
+            b["exists"] = True
+            b["last_modified"] = None
+            continue
         try:
             f = Path(b["folder"])
             b["exists"] = f.exists()
             b["last_modified"] = int(f.stat().st_mtime) if b["exists"] else None
+            if "type" not in b:
+                b["type"] = "file" if f.is_file() else "folder"
         except Exception:
             b["exists"] = False
             b["last_modified"] = None
+            if "type" not in b:
+                b["type"] = "folder"
     return {"bookmarks": items}
 
 
 @app.post("/api/bookmarks")
 def add_bookmark(body: Bookmark, x_token: Optional[str] = Header(default=None)):
+    """폴더 / 파일 / URL 자동 판별해서 미니 카드로 등록."""
     require_token(x_token)
-    folder_str = body.folder.strip().strip('"').strip("'")
-    folder = Path(folder_str)
-    if not folder.exists():
-        raise HTTPException(status_code=404, detail=f"폴더 없음: {folder}")
+    raw = body.folder.strip().strip('"').strip("'")
     items = load_bookmarks()
-    # 중복 체크
+
+    # 1) URL 모드 (링크)
+    if raw.startswith(("http://", "https://")):
+        norm = raw.rstrip("/").lower()
+        for b in items:
+            if b.get("type") == "link" and b["folder"].rstrip("/").lower() == norm:
+                raise HTTPException(status_code=409, detail="이미 등록된 링크")
+        from urllib.parse import urlparse
+        host = urlparse(raw).netloc or raw
+        item = {
+            "id": secrets.token_hex(6),
+            "folder": raw,
+            "name": body.name or host,
+            "note": body.note or "",
+            "category": body.category or "tool",
+            "type": "link",
+            "added_at": int(dt.datetime.now().timestamp()),
+        }
+        items.insert(0, item)
+        save_bookmarks(items)
+        append_log(f"🔗 링크 바로가기 추가: {item['name']} ({raw})")
+        return item
+
+    # 2) 로컬 경로 모드 (폴더 또는 파일)
+    target = Path(raw)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"경로 없음: {target}")
+    is_file = target.is_file()
     for b in items:
-        if Path(b["folder"]).resolve() == folder.resolve():
-            raise HTTPException(status_code=409, detail="이미 등록된 폴더")
+        if b.get("type") == "link":
+            continue
+        try:
+            if Path(b["folder"]).resolve() == target.resolve():
+                raise HTTPException(status_code=409, detail="이미 등록된 경로")
+        except OSError:
+            continue
     item = {
         "id": secrets.token_hex(6),
-        "folder": str(folder),
-        "name": body.name or folder.name,
+        "folder": str(target),
+        "name": body.name or target.name,
         "note": body.note or "",
         "category": body.category or "tool",
+        "type": "file" if is_file else "folder",
         "added_at": int(dt.datetime.now().timestamp()),
     }
-    items.insert(0, item)  # 최신순
+    items.insert(0, item)
     save_bookmarks(items)
-    append_log(f"📌 폴더 바로가기 추가: {item['name']} ({folder})")
+    kind = "📄 파일" if is_file else "📁 폴더"
+    append_log(f"📌 {kind} 바로가기 추가: {item['name']} ({target})")
     return item
 
 
@@ -531,6 +571,7 @@ def import_desktop(x_token: Optional[str] = Header(default=None)):
             "name": name,
             "note": "",
             "category": desktop_scan.classify(name, folder),
+            "type": "folder",
             "added_at": int(dt.datetime.now().timestamp()),
         })
         existing.add(_norm_path(folder))

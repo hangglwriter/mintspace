@@ -139,7 +139,7 @@ function renderCategories() {
     section.id = `cat-${cat.id}`;
     Object.entries(categoryStyle(cat)).forEach(([k, v]) => section.style.setProperty(k, v));
 
-    const sub = `${list.length}개` + (bmList.length ? ` · 📁 바로가기 ${bmList.length}` : "");
+    const sub = `${list.length}개` + (bmList.length ? ` · 바로가기 ${bmList.length}` : "");
     section.innerHTML = `
       <div class="section-header">
         <h2>
@@ -148,7 +148,7 @@ function renderCategories() {
         </h2>
         <span class="section-sub">${sub}</span>
         <button class="section-action" data-edit-cat="${cat.id}" title="카테고리 수정">✏</button>
-        <button class="section-action" data-add-bm="${cat.id}" title="이 카테고리에 폴더 바로가기 추가">+ 폴더</button>
+        <button class="section-action" data-add-bm="${cat.id}" title="이 카테고리에 폴더 / 파일 / 링크 추가">+ 바로가기</button>
         <button class="section-action" data-add-prj="${cat.id}">+ 프로젝트</button>
         ${list.length + bmList.length === 0 ? `<button class="section-action" data-del-cat="${cat.id}" title="빈 카테고리 삭제">✕</button>` : ""}
       </div>
@@ -226,18 +226,22 @@ function renderCard(p, cat) {
   return card;
 }
 
-// ===== 폴더 바로가기 (미니 카드) =====
+// ===== 바로가기 (미니 카드) - 폴더 / 파일 / 링크 =====
+const CHIP_ICONS = { folder: "📁", file: "📄", link: "🔗" };
+
 function renderChip(b, cat) {
+  const type = b.type || "folder";
+  const icon = CHIP_ICONS[type] || "📁";
   const chip = document.createElement("div");
-  chip.className = "chip" + (b.exists === false ? " missing" : "");
+  chip.className = "chip chip-" + type + (b.exists === false ? " missing" : "");
   chip.dataset.searchKey = `${b.name} ${b.folder} ${b.note || ""}`.toLowerCase();
   chip.dataset.bid = b.id;
   chip.dataset.cat = b.category;
-  chip.title = b.folder + (b.exists === false ? "  (폴더 없음)" : "");
+  chip.title = b.folder + (b.exists === false ? "  (경로 없음)" : "");
   chip.draggable = true;
   Object.entries(categoryStyle(cat)).forEach(([k, v]) => chip.style.setProperty(k, v));
   chip.innerHTML = `
-    <div class="chip-name"><span class="chip-icon">📁</span>${b.name}</div>
+    <div class="chip-name"><span class="chip-icon">${icon}</span>${b.name}</div>
     <div class="chip-path">${b.folder}</div>
     <button class="chip-del" data-bm-del="${b.id}" title="바로가기 제거">×</button>
   `;
@@ -253,10 +257,19 @@ function renderChip(b, cat) {
       return;
     }
     if (STATE.editMode) return;  // 편집 모드에선 본문 클릭 무시 (X만 활성)
+
+    // 링크는 브라우저 새 탭으로 (헬퍼 불필요)
+    if (type === "link") {
+      window.open(b.folder, "_blank", "noopener");
+      toast(`🔗 ${b.name} 열림`);
+      return;
+    }
+    // 폴더 / 파일은 로컬 헬퍼가 os.startfile 로 처리
     if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
     try {
       await api("/api/open-folder", { method: "POST", body: JSON.stringify({ folder: b.folder, project_id: "bm-" + b.id }) });
-      toast(`📂 ${b.name} 열림`);
+      const verb = type === "file" ? "📄" : "📂";
+      toast(`${verb} ${b.name} 열림`);
     } catch (err) { toast("실패: " + err.message, "err"); }
   });
   return chip;

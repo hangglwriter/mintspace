@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026052804" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026052805" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -22,7 +22,7 @@
 
       <nav class="sidebar-nav">
         <a href="#bookmarks" class="nav-item nav-bookmarks">
-          <span class="nav-label">폴더 바로가기</span>
+          <span class="nav-label">바로가기</span>
           <span class="nav-count" id="nav-bookmark-count"></span>
         </a>
         <div class="nav-divider"></div>
@@ -77,11 +77,11 @@
         <button id="banner-retry" class="link-btn">다시 시도</button>
       </div>
 
-      <!-- 폴더 바로가기 안내 + 바탕화면 스캔 -->
+      <!-- 바로가기 안내 + 바탕화면 스캔 -->
       <section id="bookmarks" class="section bookmarks-section">
         <div class="section-header">
-          <h2><span class="section-icon">📁</span> 폴더 바로가기</h2>
-          <span class="section-sub">각 카테고리의 [+ 폴더]로 추가 · 카드를 클릭하면 탐색기로 바로 열림</span>
+          <h2><span class="section-icon">📌</span> 바로가기</h2>
+          <span class="section-sub">각 카테고리의 [+ 바로가기]로 폴더 / 문서 / 링크 추가 · 카드를 클릭하면 바로 열림</span>
           <button id="rescan-btn" class="section-action" title="바탕화면 바로가기를 다시 읽어 새 폴더만 가져오기">🖥 바탕화면 스캔</button>
         </div>
       </section>
@@ -168,11 +168,12 @@
 
   <div id="bookmark-modal" class="modal hidden">
     <div class="modal-inner">
-      <h3>📁 폴더 바로가기 추가</h3>
-      <label>폴더 경로</label>
-      <input id="bm-folder" type="text" placeholder="D:\path\to\folder 또는 \\nas\공유폴더" />
+      <h3>📌 바로가기 추가</h3>
+      <label>경로 또는 URL</label>
+      <input id="bm-folder" type="text" placeholder="D:\문서.hwp / \\nas\공유폴더 / https://example.com" />
+      <p class="hint-tiny">폴더 · 문서 파일 · 웹 링크 모두 가능. <code>http://</code> 또는 <code>https://</code>로 시작하면 링크로 자동 인식.</p>
       <label>이름 (선택)</label>
-      <input id="bm-name" type="text" placeholder="비우면 폴더명 자동" />
+      <input id="bm-name" type="text" placeholder="비우면 폴더명 / 파일명 / 도메인 자동" />
       <label>카테고리</label>
       <select id="bm-category"></select>
       <div class="modal-actions">
@@ -182,6 +183,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026052804"></script>
+  <script src="/assets/app.js?v=2026052805"></script>
 </body>
 </html>
