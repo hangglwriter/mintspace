@@ -26,6 +26,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import desktop_scan
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 WEB_DIR = ROOT / "web"
@@ -118,6 +120,7 @@ class Bookmark(BaseModel):
     folder: str
     name: Optional[str] = None
     note: Optional[str] = None
+    category: Optional[str] = None
 
 
 class CategoryIn(BaseModel):
@@ -462,12 +465,99 @@ def add_bookmark(body: Bookmark, x_token: Optional[str] = Header(default=None)):
         "folder": str(folder),
         "name": body.name or folder.name,
         "note": body.note or "",
+        "category": body.category or "tool",
         "added_at": int(dt.datetime.now().timestamp()),
     }
     items.insert(0, item)  # 최신순
     save_bookmarks(items)
-    append_log(f"📌 책갈피 추가: {item['name']} ({folder})")
+    append_log(f"📌 폴더 바로가기 추가: {item['name']} ({folder})")
     return item
+
+
+class BookmarkPatch(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    note: Optional[str] = None
+
+
+@app.patch("/api/bookmarks/{bookmark_id}")
+def update_bookmark(bookmark_id: str, body: BookmarkPatch, x_token: Optional[str] = Header(default=None)):
+    """폴더 바로가기 카테고리 이동 / 이름·노트 수정 (칩 드래그용)."""
+    require_token(x_token)
+    items = load_bookmarks()
+    b = next((b for b in items if b.get("id") == bookmark_id), None)
+    if not b:
+        raise HTTPException(status_code=404, detail="바로가기 없음")
+    if body.name is not None: b["name"] = body.name
+    if body.category is not None: b["category"] = body.category
+    if body.note is not None: b["note"] = body.note
+    save_bookmarks(items)
+    return b
+
+
+def _norm_path(p: str) -> str:
+    """경로 비교용 정규화 (대소문자·끝 슬래시 무시)."""
+    try:
+        return str(Path(p)).rstrip("\\/").lower()
+    except Exception:
+        return (p or "").rstrip("\\/").lower()
+
+
+@app.post("/api/bookmarks-import")
+def import_desktop(x_token: Optional[str] = Header(default=None)):
+    """바탕화면 폴더 바로가기 + 실제 폴더를 스캔해 자동 분류로 일괄 추가.
+
+    이미 프로젝트로 등록된 폴더, 이미 바로가기에 있는 폴더는 건너뛴다.
+    """
+    require_token(x_token)
+    scanned = desktop_scan.scan_desktop()
+    proj_data = load_projects_data()
+    existing = {_norm_path(p["folder"]) for p in proj_data.get("projects", [])}
+    items = load_bookmarks()
+    for b in items:
+        existing.add(_norm_path(b["folder"]))
+
+    added = 0
+    skipped = 0
+    for it in scanned:
+        folder = it.get("path", "")
+        name = it.get("name", "")
+        if not folder or _norm_path(folder) in existing:
+            skipped += 1
+            continue
+        items.append({
+            "id": secrets.token_hex(6),
+            "folder": folder,
+            "name": name,
+            "note": "",
+            "category": desktop_scan.classify(name, folder),
+            "added_at": int(dt.datetime.now().timestamp()),
+        })
+        existing.add(_norm_path(folder))
+        added += 1
+
+    save_bookmarks(items)
+    append_log(f"🖥 바탕화면 가져오기: {added}개 추가 · {skipped}개 중복 스킵")
+    return {"added": added, "skipped": skipped, "total": len(items)}
+
+
+@app.post("/api/bookmarks-order")
+def reorder_bookmarks(body: OrderIn, x_token: Optional[str] = Header(default=None)):
+    """폴더 바로가기 전체 순서를 받은 ids 순서대로 재정렬 (칩 드래그용)."""
+    require_token(x_token)
+    items = load_bookmarks()
+    by_id = {b["id"]: b for b in items}
+    new_order = []
+    seen = set()
+    for bid in body.ids:
+        if bid in by_id and bid not in seen:
+            new_order.append(by_id[bid])
+            seen.add(bid)
+    for b in items:  # 빠진 건 뒤에 보존
+        if b["id"] not in seen:
+            new_order.append(b)
+    save_bookmarks(new_order)
+    return {"ok": True, "count": len(new_order)}
 
 
 @app.delete("/api/bookmarks/{bookmark_id}")

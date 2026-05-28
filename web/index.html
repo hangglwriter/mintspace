@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=20260524" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026052803" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -22,7 +22,7 @@
 
       <nav class="sidebar-nav">
         <a href="#bookmarks" class="nav-item nav-bookmarks">
-          <span class="nav-label">책갈피</span>
+          <span class="nav-label">폴더 바로가기</span>
           <span class="nav-count" id="nav-bookmark-count"></span>
         </a>
         <div class="nav-divider"></div>
@@ -73,18 +73,13 @@
         <button id="banner-retry" class="link-btn">다시 시도</button>
       </div>
 
-      <!-- 책갈피 섹션 -->
+      <!-- 폴더 바로가기 안내 + 바탕화면 스캔 -->
       <section id="bookmarks" class="section bookmarks-section">
         <div class="section-header">
-          <h2><span class="section-icon">📌</span> 책갈피</h2>
-          <span class="section-sub">자주 가는 폴더를 빠르게</span>
+          <h2><span class="section-icon">📁</span> 폴더 바로가기</h2>
+          <span class="section-sub">각 카테고리의 [+ 폴더]로 추가 · 카드를 클릭하면 탐색기로 바로 열림</span>
+          <button id="rescan-btn" class="section-action" title="바탕화면 바로가기를 다시 읽어 새 폴더만 가져오기">🖥 바탕화면 스캔</button>
         </div>
-        <div class="bookmark-input">
-          <input id="bookmark-input" type="text" placeholder="폴더 경로 붙여넣기 (예: D:\claude-lecture\260612 강의)" />
-          <input id="bookmark-name-input" type="text" placeholder="이름 (선택)" />
-          <button id="bookmark-add-btn" class="primary-btn">+ 추가</button>
-        </div>
-        <div id="bookmarks-grid" class="grid bookmarks-grid"></div>
       </section>
 
       <!-- 카테고리별 프로젝트 -->
@@ -167,6 +162,22 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=20260524"></script>
+  <div id="bookmark-modal" class="modal hidden">
+    <div class="modal-inner">
+      <h3>📁 폴더 바로가기 추가</h3>
+      <label>폴더 경로</label>
+      <input id="bm-folder" type="text" placeholder="D:\path\to\folder 또는 \\nas\공유폴더" />
+      <label>이름 (선택)</label>
+      <input id="bm-name" type="text" placeholder="비우면 폴더명 자동" />
+      <label>카테고리</label>
+      <select id="bm-category"></select>
+      <div class="modal-actions">
+        <button class="link-btn" onclick="document.getElementById('bookmark-modal').classList.add('hidden')">취소</button>
+        <button id="bm-save" class="primary-btn">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js?v=2026052803"></script>
 </body>
 </html>

@@ -542,6 +542,88 @@ input, select, textarea {
   cursor: not-allowed;
 }
 
+/* ============== 폴더 바로가기 미니 카드 ============== */
+.shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.shortcuts:empty { margin-top: 0; }
+
+.chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 24px 8px 11px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cat-color, var(--border));
+  border-radius: var(--r-sm);
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: transform .1s, box-shadow .1s, border-color .1s;
+}
+.chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--cat-color, var(--text-faint));
+}
+.chip[draggable="true"] { cursor: grab; }
+.chip.dragging { opacity: 0.4; transform: scale(0.97); }
+.chip-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip-icon { flex-shrink: 0; opacity: 0.85; font-size: 13px; }
+.chip-path {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: ui-monospace, "JetBrains Mono", Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip-del {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 3px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity .1s, color .1s;
+}
+.chip:hover .chip-del { opacity: 0.7; }
+.chip-del:hover { opacity: 1; color: var(--danger); }
+.chip.missing { opacity: 0.55; }
+.chip.missing .chip-path { color: var(--danger); text-decoration: line-through; }
+
+.shortcuts.drag-active {
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+  border-radius: var(--r);
+  min-height: 36px;
+  transition: outline-color .15s, background .15s;
+}
+.shortcuts.drag-active:hover {
+  outline-color: var(--cat-color, var(--accent));
+  background: var(--cat-bg, var(--accent-bg));
+}
+
 /* ============== 사이드 패널 ============== */
 .side-panel {
   position: fixed;

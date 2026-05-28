@@ -127,33 +127,41 @@ function renderCategories() {
   area.innerHTML = "";
   const byCat = {};
   for (const p of STATE.data.projects) (byCat[p.category] ||= []).push(p);
+  const bmByCat = {};
+  for (const b of STATE.bookmarks) (bmByCat[b.category] ||= []).push(b);
 
   for (const cat of STATE.data.categories) {
     const list = byCat[cat.id] || [];
+    const bmList = bmByCat[cat.id] || [];
     const section = document.createElement("section");
     section.className = "section";
     section.id = `cat-${cat.id}`;
     Object.entries(categoryStyle(cat)).forEach(([k, v]) => section.style.setProperty(k, v));
 
+    const sub = `${list.length}개` + (bmList.length ? ` · 📁 바로가기 ${bmList.length}` : "");
     section.innerHTML = `
       <div class="section-header">
         <h2>
           <span class="section-icon">${cat.icon || ""}</span>
           ${cat.name}
         </h2>
-        <span class="section-sub">${list.length}개</span>
+        <span class="section-sub">${sub}</span>
         <button class="section-action" data-edit-cat="${cat.id}" title="카테고리 수정">✏</button>
+        <button class="section-action" data-add-bm="${cat.id}" title="이 카테고리에 폴더 바로가기 추가">+ 폴더</button>
         <button class="section-action" data-add-prj="${cat.id}">+ 프로젝트</button>
-        ${list.length === 0 ? `<button class="section-action" data-del-cat="${cat.id}" title="빈 카테고리 삭제">✕</button>` : ""}
+        ${list.length + bmList.length === 0 ? `<button class="section-action" data-del-cat="${cat.id}" title="빈 카테고리 삭제">✕</button>` : ""}
       </div>
       <div class="grid" data-grid-cat="${cat.id}"></div>
+      <div class="shortcuts" data-sc-cat="${cat.id}"></div>
     `;
     const grid = section.querySelector(".grid");
-    if (list.length === 0) {
+    if (list.length === 0 && bmList.length === 0) {
       grid.innerHTML = `<div class="empty" data-empty-cat="${cat.id}">비어있음 · [+ 프로젝트] 추가 or 다른 카테고리 카드 끌어다 놓기</div>`;
     } else {
       list.forEach(p => grid.appendChild(renderCard(p, cat)));
     }
+    const sc = section.querySelector(".shortcuts");
+    bmList.forEach(b => sc.appendChild(renderChip(b, cat)));
     area.appendChild(section);
   }
 }
@@ -216,94 +224,100 @@ function renderCard(p, cat) {
   return card;
 }
 
-// ===== 책갈피 =====
-async function loadBookmarks() {
-  try {
-    const r = await api("/api/bookmarks");
-    STATE.bookmarks = r.bookmarks || [];
-    renderBookmarks();
-    $("#nav-bookmark-count").textContent = STATE.bookmarks.length || "";
-  } catch (e) {
-    console.error("책갈피 로딩 실패", e);
-  }
-}
-
-function renderBookmarks() {
-  const grid = $("#bookmarks-grid");
-  if (!STATE.bookmarks.length) {
-    grid.innerHTML = `<div class="empty-bookmark">아직 책갈피 없음 · 위 입력창에 폴더 경로를 붙여넣어봐</div>`;
-    return;
-  }
-  grid.innerHTML = "";
-  for (const b of STATE.bookmarks) {
-    const card = document.createElement("div");
-    card.className = "card" + (b.exists === false ? " missing" : "");
-    card.dataset.searchKey = `${b.name} ${b.folder} ${b.note || ""}`.toLowerCase();
-    const meta = b.last_modified ? `<div class="card-meta">최근 수정 ${relTime(b.last_modified)}</div>` : "";
-    const missing = b.exists === false ? `<span class="badge" style="background:#fee2e2;color:#991b1b">없음</span>` : "";
-    card.innerHTML = `
-      <div class="card-head">
-        <div class="card-title">📌 ${b.name} ${missing}</div>
-        <button class="card-menu-btn" data-bm-del="${b.id}" title="책갈피 제거">×</button>
-      </div>
-      <div class="card-note">${b.note || ""}</div>
-      ${meta}
-      <div class="card-path" title="${b.folder}">${b.folder}</div>
-      <div class="card-actions">
-        <button class="card-btn" data-bm-action="folder">📂 폴더</button>
-        <button class="card-btn primary" data-bm-action="terminal">💬 cldp</button>
-      </div>
-    `;
-    card.addEventListener("click", async (e) => {
-      const delBtn = e.target.closest("[data-bm-del]");
-      if (delBtn) {
-        try {
-          await api(`/api/bookmarks/${b.id}`, { method: "DELETE" });
-          toast("책갈피 제거됨");
-          await loadBookmarks();
-        } catch (err) { toast("실패: " + err.message, "err"); }
-        return;
-      }
-      const actBtn = e.target.closest("[data-bm-action]");
-      if (!actBtn) return;
-      const action = actBtn.dataset.bmAction;
-      if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
-      actBtn.disabled = true;
+// ===== 폴더 바로가기 (미니 카드) =====
+function renderChip(b, cat) {
+  const chip = document.createElement("div");
+  chip.className = "chip" + (b.exists === false ? " missing" : "");
+  chip.dataset.searchKey = `${b.name} ${b.folder} ${b.note || ""}`.toLowerCase();
+  chip.dataset.bid = b.id;
+  chip.dataset.cat = b.category;
+  chip.title = b.folder + (b.exists === false ? "  (폴더 없음)" : "");
+  chip.draggable = true;
+  Object.entries(categoryStyle(cat)).forEach(([k, v]) => chip.style.setProperty(k, v));
+  chip.innerHTML = `
+    <div class="chip-name"><span class="chip-icon">📁</span>${b.name}</div>
+    <div class="chip-path">${b.folder}</div>
+    <button class="chip-del" data-bm-del="${b.id}" title="바로가기 제거">×</button>
+  `;
+  chip.addEventListener("click", async (e) => {
+    const delBtn = e.target.closest("[data-bm-del]");
+    if (delBtn) {
+      e.stopPropagation();
       try {
-        if (action === "folder") {
-          await api("/api/open-folder", { method: "POST", body: JSON.stringify({ folder: b.folder, project_id: "bookmark-" + b.id }) });
-          toast(`📂 ${b.name} 열림`);
-        } else if (action === "terminal") {
-          const r = await api("/api/launch-terminal", { method: "POST", body: JSON.stringify({ folder: b.folder, project_id: "bookmark-" + b.id }) });
-          toast(`💬 ${b.name} cldp 시작 (${r.via})`);
-        }
+        await api(`/api/bookmarks/${b.id}`, { method: "DELETE" });
+        toast("바로가기 제거됨");
+        await loadProjects();
       } catch (err) { toast("실패: " + err.message, "err"); }
-      finally { actBtn.disabled = false; }
-    });
-    grid.appendChild(card);
-  }
+      return;
+    }
+    if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
+    try {
+      await api("/api/open-folder", { method: "POST", body: JSON.stringify({ folder: b.folder, project_id: "bm-" + b.id }) });
+      toast(`📂 ${b.name} 열림`);
+    } catch (err) { toast("실패: " + err.message, "err"); }
+  });
+  return chip;
 }
 
-function setupBookmarkInput() {
-  const input = $("#bookmark-input");
-  const nameInput = $("#bookmark-name-input");
-  const btn = $("#bookmark-add-btn");
-  async function add() {
-    const folder = input.value.trim().replace(/^["']|["']$/g, "");
-    if (!folder) { toast("폴더 경로 비어있음", "err"); return; }
+function fillBookmarkCatSelect(selectedId) {
+  const sel = $("#bm-category");
+  if (!sel) return;
+  sel.innerHTML = STATE.data.categories
+    .map(c => `<option value="${c.id}">${c.icon || "📁"} ${c.name}</option>`)
+    .join("");
+  if (selectedId) sel.value = selectedId;
+}
+
+function openBookmarkModal(catId) {
+  $("#bm-folder").value = "";
+  $("#bm-name").value = "";
+  fillBookmarkCatSelect(catId);
+  $("#bookmark-modal").classList.remove("hidden");
+  $("#bm-folder").focus();
+}
+
+function setupBookmarkModal() {
+  // 각 카테고리 [+ 폴더] 버튼 위임
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-add-bm]");
+    if (btn) openBookmarkModal(btn.dataset.addBm);
+  });
+
+  async function save() {
+    const folder = $("#bm-folder").value.trim().replace(/^["']|["']$/g, "");
+    if (!folder) return toast("폴더 경로를 입력해", "err");
     try {
       await api("/api/bookmarks", {
         method: "POST",
-        body: JSON.stringify({ folder, name: nameInput.value.trim() || null }),
+        body: JSON.stringify({
+          folder,
+          name: $("#bm-name").value.trim() || null,
+          category: $("#bm-category").value || "tool",
+        }),
       });
-      input.value = ""; nameInput.value = "";
-      toast("📌 책갈피 추가됨");
-      await loadBookmarks();
+      $("#bookmark-modal").classList.add("hidden");
+      toast("📁 폴더 바로가기 추가됨");
+      await loadProjects();
     } catch (err) { toast("실패: " + err.message, "err"); }
   }
-  btn.addEventListener("click", add);
-  input.addEventListener("keydown", e => { if (e.key === "Enter") add(); });
-  nameInput.addEventListener("keydown", e => { if (e.key === "Enter") add(); });
+  $("#bm-save").addEventListener("click", save);
+  $("#bm-folder").addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  $("#bm-name").addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+
+  // 바탕화면 다시 스캔 → 새 폴더만 가져오기
+  $("#rescan-btn").addEventListener("click", async () => {
+    if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
+    const b = $("#rescan-btn");
+    b.disabled = true;
+    const orig = b.textContent;
+    b.textContent = "🖥 스캔 중...";
+    try {
+      const r = await api("/api/bookmarks-import", { method: "POST" });
+      toast(r.added ? `🖥 ${r.added}개 새로 추가됨 (중복 ${r.skipped})` : `새로 추가된 폴더 없음 (중복 ${r.skipped})`);
+      await loadProjects();
+    } catch (err) { toast("실패: " + err.message, "err"); }
+    finally { b.disabled = false; b.textContent = orig; }
+  });
 }
 
 // ===== 카테고리 추가/편집 (한 모달 재활용) =====
@@ -418,13 +432,13 @@ function setupSearch() {
   const input = $("#search-input");
   input.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
-    $$(".card").forEach((card) => {
-      const match = !q || card.dataset.searchKey.includes(q);
-      card.style.display = match ? "" : "none";
+    $$(".card, .chip").forEach((el) => {
+      const match = !q || el.dataset.searchKey.includes(q);
+      el.style.display = match ? "" : "none";
     });
     $$(".section").forEach((sec) => {
       if (sec.classList.contains("bookmarks-section")) return;
-      const visible = sec.querySelectorAll('.card:not([style*="display: none"])').length;
+      const visible = sec.querySelectorAll('.card:not([style*="display: none"]), .chip:not([style*="display: none"])').length;
       sec.style.display = visible || !q ? "" : "none";
     });
   });
@@ -500,8 +514,14 @@ function setupTokenModal() {
 
 // ===== 부팅 =====
 async function loadProjects() {
-  STATE.data = await api("/api/projects");
+  const [proj, bm] = await Promise.all([
+    api("/api/projects"),
+    api("/api/bookmarks"),
+  ]);
+  STATE.data = proj;
+  STATE.bookmarks = bm.bookmarks || [];
   renderSidebar();
+  fillBookmarkCatSelect();
   renderCategories();
 }
 
@@ -517,7 +537,6 @@ async function boot(retry = false) {
   if (!ok) { setHelperStatus(true, "토큰 필요"); return; }
   try {
     await loadProjects();
-    await loadBookmarks();
   } catch (e) {
     toast("로딩 실패: " + e.message, "err");
     setHelperStatus(false, "인증 실패");
@@ -640,13 +659,116 @@ function setupDragAndDrop() {
   });
 }
 
+// ===== 칩(폴더 바로가기) 드래그 → 순서 변경 + 카테고리 이동 =====
+// 카드 드래그(setupDragAndDrop)와는 각자 클로저의 dragging 상태로 배타 분기된다.
+function setupChipDrag() {
+  let dragging = null;
+  let originalCat = null;
+  let saved = false;
+
+  // 현재 DOM 순서 + 카테고리 변경을 서버에 저장.
+  async function persistChipOrder(chip, fromCat) {
+    const movedCat = chip.dataset.cat !== fromCat;
+    const bid = chip.dataset.bid;
+    const newCat = chip.dataset.cat;
+    try {
+      if (movedCat) {
+        await api(`/api/bookmarks/${bid}`, {
+          method: "PATCH",
+          body: JSON.stringify({ category: newCat }),
+        });
+        const b = STATE.bookmarks.find(x => x.id === bid);
+        if (b) b.category = newCat;
+      }
+      // 전체 순서 저장 (카테고리별 shortcuts DOM 순서 = 전역 bookmarks 순서)
+      const newOrder = [];
+      $$(".shortcuts .chip[data-bid]").forEach(c => newOrder.push(c.dataset.bid));
+      await api("/api/bookmarks-order", {
+        method: "POST",
+        body: JSON.stringify({ ids: newOrder }),
+      });
+      const map = {};
+      STATE.bookmarks.forEach(b => map[b.id] = b);
+      STATE.bookmarks = newOrder.map(id => map[id]).filter(Boolean);
+
+      if (movedCat) {
+        const catName = STATE.data.categories.find(c => c.id === newCat)?.name || newCat;
+        toast(`📁 "${chip.querySelector('.chip-name')?.textContent.trim()}" → ${catName}`);
+        await loadProjects();  // 헤더 카운트 갱신
+      } else {
+        toast("순서 저장됨");
+      }
+    } catch (err) {
+      toast("저장 실패: " + err.message, "err");
+      await loadProjects();
+    }
+  }
+
+  document.addEventListener("dragstart", (e) => {
+    const chip = e.target.closest(".chip[data-bid]");
+    if (!chip) return;
+    dragging = chip;
+    originalCat = chip.dataset.cat;
+    saved = false;
+    chip.classList.add("dragging");
+    $$(".shortcuts").forEach(s => s.classList.add("drag-active"));
+    try { e.dataTransfer.effectAllowed = "move"; } catch {}
+  });
+
+  document.addEventListener("dragend", () => {
+    const chip = dragging;
+    const fromCat = originalCat;
+    if (chip) chip.classList.remove("dragging");
+    $$(".shortcuts.drag-active").forEach(s => s.classList.remove("drag-active"));
+    dragging = null;
+    originalCat = null;
+    if (chip && !saved) persistChipOrder(chip, fromCat);
+  });
+
+  document.addEventListener("dragover", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+
+    // 1. 다른 칩 위로 드래그 (위치 결정)
+    const targetChip = e.target.closest(".chip[data-bid]");
+    if (targetChip && targetChip !== dragging) {
+      const newSc = targetChip.closest(".shortcuts");
+      const newCat = newSc?.dataset.scCat;
+      if (newCat && newCat !== dragging.dataset.cat) dragging.dataset.cat = newCat;
+      const rect = targetChip.getBoundingClientRect();
+      // 미니 카드는 그리드라 좌우 위치도 고려
+      const before = e.clientY < rect.top + rect.height / 2
+        || (Math.abs(e.clientY - (rect.top + rect.height / 2)) < rect.height / 2 && e.clientX < rect.left + rect.width / 2);
+      const parent = targetChip.parentNode;
+      if (before) parent.insertBefore(dragging, targetChip);
+      else parent.insertBefore(dragging, targetChip.nextSibling);
+      return;
+    }
+
+    // 2. 빈 shortcuts 영역으로 드래그 (그 카테고리로 이동)
+    const targetSc = e.target.closest(".shortcuts[data-sc-cat]");
+    if (targetSc && !targetSc.contains(dragging)) {
+      dragging.dataset.cat = targetSc.dataset.scCat;
+      targetSc.appendChild(dragging);
+    }
+  });
+
+  document.addEventListener("drop", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    saved = true;
+    persistChipOrder(dragging, originalCat);
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   setupSearch();
   setupSidePanels();
   setupTokenModal();
-  setupBookmarkInput();
+  setupBookmarkModal();
   setupCategoryModal();
   setupProjectModal();
   setupDragAndDrop();
+  setupChipDrag();
   boot();
 });
