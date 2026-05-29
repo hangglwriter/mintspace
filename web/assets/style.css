@@ -741,6 +741,45 @@ body.edit-mode .chip-edit { display: none; }
 .chip.missing { opacity: 0.55; }
 .chip.missing .chip-path { color: var(--danger); text-decoration: line-through; }
 
+/* 줄바꿈 라인 — 미니카드를 줄 단위로 묶기 (grid 한 줄 전체 폭 차지 → 뒤 카드 다음 줄로) */
+.rowbreak {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 16px;
+  margin: 1px 0;
+  cursor: grab;
+  user-select: none;
+}
+.rowbreak::before,
+.rowbreak::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--cat-color, var(--border));
+  opacity: 0.45;
+}
+.rowbreak-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+.rowbreak:hover::before,
+.rowbreak:hover::after { opacity: 0.8; }
+.rowbreak.dragging { opacity: 0.4; }
+.rowbreak .rowbreak-del { top: 50%; right: 2px; transform: translateY(-50%); }
+body.edit-mode .rowbreak { cursor: default; }
+body.edit-mode .rowbreak .rowbreak-del {
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+}
+body.edit-mode .rowbreak .rowbreak-del:hover { transform: translateY(-50%) scale(1.12); }
+
 .shortcuts.drag-active {
   outline: 2px dashed transparent;
   outline-offset: 4px;

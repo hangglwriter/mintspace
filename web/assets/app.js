@@ -111,7 +111,7 @@ function renderSidebar() {
     nav.appendChild(item);
   }
 
-  $("#nav-bookmark-count").textContent = STATE.bookmarks.length || "";
+  $("#nav-bookmark-count").textContent = STATE.bookmarks.filter(b => b.type !== "rowbreak").length || "";
 }
 
 // ===== 메인 카테고리 + 카드 =====
@@ -139,7 +139,8 @@ function renderCategories() {
     section.id = `cat-${cat.id}`;
     Object.entries(categoryStyle(cat)).forEach(([k, v]) => section.style.setProperty(k, v));
 
-    const sub = `${list.length}개` + (bmList.length ? ` · 바로가기 ${bmList.length}` : "");
+    const realBmCount = bmList.filter(b => b.type !== "rowbreak").length;
+    const sub = `${list.length}개` + (realBmCount ? ` · 바로가기 ${realBmCount}` : "");
     section.innerHTML = `
       <div class="section-header">
         <h2>
@@ -149,6 +150,7 @@ function renderCategories() {
         <span class="section-sub">${sub}</span>
         <button class="section-action" data-edit-cat="${cat.id}" title="카테고리 수정">✏</button>
         <button class="section-action" data-add-bm="${cat.id}" title="이 카테고리에 폴더 / 파일 / 링크 추가">+ 바로가기</button>
+        <button class="section-action" data-add-rowbreak="${cat.id}" title="미니카드를 줄로 나누기 (줄바꿈 라인 추가, 드래그로 위치 이동)">+ 줄바꿈</button>
         <button class="section-action" data-add-prj="${cat.id}">+ 프로젝트</button>
         ${list.length + bmList.length === 0 ? `<button class="section-action" data-del-cat="${cat.id}" title="빈 카테고리 삭제">✕</button>` : ""}
       </div>
@@ -162,7 +164,9 @@ function renderCategories() {
       list.forEach(p => grid.appendChild(renderCard(p, cat)));
     }
     const sc = section.querySelector(".shortcuts");
-    bmList.forEach(b => sc.appendChild(renderChip(b, cat)));
+    bmList.forEach(b => sc.appendChild(
+      b.type === "rowbreak" ? renderRowBreak(b, cat) : renderChip(b, cat)
+    ));
     area.appendChild(section);
   }
 }
@@ -230,7 +234,7 @@ function renderCard(p, cat) {
       return;
     }
     if (action === "edit") {
-      openRenameModal("project", p.id, p.name, p.category);
+      openRenameModal("project", p.id, p.name, p.category, p.folder);
       return;
     }
     if (STATE.editMode) return;  // 편집 모드에선 그 외 액션 비활성 (실수 방지)
@@ -279,7 +283,7 @@ function renderChip(b, cat) {
     const editBtn = e.target.closest("[data-bm-edit]");
     if (editBtn) {
       e.stopPropagation();
-      openRenameModal("bookmark", b.id, b.name, b.category);
+      openRenameModal("bookmark", b.id, b.name, b.category, b.folder);
       return;
     }
     // 별표 토글 (편집 모드와 무관)
@@ -329,6 +333,33 @@ function renderChip(b, cat) {
     } catch (err) { toast("실패: " + err.message, "err"); }
   });
   return chip;
+}
+
+// 줄바꿈 라인 (미니카드를 줄 단위로 묶기) — grid 전체 폭을 차지해 뒤 카드를 다음 줄로 밀어냄
+function renderRowBreak(b, cat) {
+  const el = document.createElement("div");
+  el.className = "rowbreak";
+  el.dataset.bid = b.id;
+  el.dataset.cat = b.category;
+  el.dataset.searchKey = "";  // 검색 시 같이 숨기기 위해 빈 키
+  el.draggable = true;
+  el.title = "줄바꿈 라인 · 드래그로 위치 이동";
+  Object.entries(categoryStyle(cat)).forEach(([k, v]) => el.style.setProperty(k, v));
+  el.innerHTML = `
+    <span class="rowbreak-label">⸻ 줄바꿈 ⸻</span>
+    <button class="chip-del rowbreak-del" data-bm-del="${b.id}" title="줄바꿈 제거">×</button>
+  `;
+  el.addEventListener("click", async (e) => {
+    const delBtn = e.target.closest("[data-bm-del]");
+    if (!delBtn) return;
+    e.stopPropagation();
+    try {
+      await api(`/api/bookmarks/${b.id}`, { method: "DELETE" });
+      toast("줄바꿈 제거됨");
+      await loadProjects();
+    } catch (err) { toast("실패: " + err.message, "err"); }
+  });
+  return el;
 }
 
 // 프로젝트를 즐겨찾기 섹션용 컴팩트 칩으로 (큰 카드 아닌 미니카드 형태)
@@ -427,6 +458,20 @@ function setupBookmarkModal() {
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-add-bm]");
     if (btn) openBookmarkModal(btn.dataset.addBm);
+  });
+
+  // [+ 줄바꿈] 버튼 위임 — 해당 카테고리 끝에 줄바꿈 라인 추가
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-add-rowbreak]");
+    if (!btn) return;
+    try {
+      await api("/api/bookmarks-rowbreak", {
+        method: "POST",
+        body: JSON.stringify({ category: btn.dataset.addRowbreak }),
+      });
+      toast("➖ 줄바꿈 추가됨 · 드래그로 위치 옮겨");
+      await loadProjects();
+    } catch (err) { toast("실패: " + err.message, "err"); }
   });
 
   async function save() {
@@ -578,8 +623,8 @@ function setupSearch() {
   const input = $("#search-input");
   input.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
-    $$(".card, .chip").forEach((el) => {
-      const match = !q || el.dataset.searchKey.includes(q);
+    $$(".card, .chip, .rowbreak").forEach((el) => {
+      const match = !q || (el.dataset.searchKey || "").includes(q);
       el.style.display = match ? "" : "none";
     });
     $$(".section").forEach((sec) => {
@@ -609,9 +654,10 @@ function fillRenameCatSelect(selectedId) {
   if (selectedId) sel.value = selectedId;
 }
 
-function openRenameModal(kind, id, currentName, currentCategory) {
+function openRenameModal(kind, id, currentName, currentCategory, currentFolder) {
   renameTarget = { kind, id };
   $("#rn-name").value = currentName || "";
+  $("#rn-folder").value = currentFolder || "";
   fillRenameCatSelect(currentCategory);
   $("#rename-modal").classList.remove("hidden");
   // focus / select 는 모달이 보이고 난 뒤
@@ -623,14 +669,16 @@ function setupRenameModal() {
     if (!renameTarget) return;
     const next = $("#rn-name").value.trim();
     const newCat = $("#rn-category").value;
+    const folder = $("#rn-folder").value.trim().replace(/^["']|["']$/g, "");
     if (!next) return toast("이름이 비어있어", "err");
+    if (!folder) return toast("경로가 비어있어", "err");
     const endpoint = renameTarget.kind === "bookmark"
       ? `/api/bookmarks/${renameTarget.id}`
       : `/api/projects-meta/${renameTarget.id}`;
     try {
       await api(endpoint, {
         method: "PATCH",
-        body: JSON.stringify({ name: next, category: newCat }),
+        body: JSON.stringify({ name: next, category: newCat, folder }),
       });
       $("#rename-modal").classList.add("hidden");
       toast(`✏ "${next}" 저장됨`);
@@ -983,8 +1031,9 @@ function setupChipDrag() {
         if (b) b.category = newCat;
       }
       // 전체 순서 저장 (카테고리별 shortcuts DOM 순서 = 전역 bookmarks 순서)
+      // 줄바꿈 라인(.rowbreak)도 위치를 차지하므로 함께 수집. 즐겨찾기 섹션은 제외.
       const newOrder = [];
-      $$(".shortcuts .chip[data-bid]").forEach(c => newOrder.push(c.dataset.bid));
+      $$("#categories-area .shortcuts [data-bid]").forEach(c => newOrder.push(c.dataset.bid));
       await api("/api/bookmarks-order", {
         method: "POST",
         body: JSON.stringify({ ids: newOrder }),
@@ -995,7 +1044,8 @@ function setupChipDrag() {
 
       if (movedCat) {
         const catName = STATE.data.categories.find(c => c.id === newCat)?.name || newCat;
-        toast(`📁 "${chip.querySelector('.chip-name')?.textContent.trim()}" → ${catName}`);
+        const label = chip.querySelector('.chip-name')?.textContent.trim() || "줄바꿈";
+        toast(`📁 "${label}" → ${catName}`);
         await loadProjects();  // 헤더 카운트 갱신
       } else {
         toast("순서 저장됨");
@@ -1007,7 +1057,7 @@ function setupChipDrag() {
   }
 
   document.addEventListener("dragstart", (e) => {
-    const chip = e.target.closest(".chip[data-bid]");
+    const chip = e.target.closest(".chip[data-bid], .rowbreak[data-bid]");
     if (!chip) return;
     dragging = chip;
     originalCat = chip.dataset.cat;
@@ -1031,8 +1081,8 @@ function setupChipDrag() {
     if (!dragging) return;
     e.preventDefault();
 
-    // 1. 다른 칩 위로 드래그 (위치 결정)
-    const targetChip = e.target.closest(".chip[data-bid]");
+    // 1. 다른 칩(또는 줄바꿈) 위로 드래그 (위치 결정)
+    const targetChip = e.target.closest(".chip[data-bid], .rowbreak[data-bid]");
     if (targetChip && targetChip !== dragging) {
       const newSc = targetChip.closest(".shortcuts");
       const newCat = newSc?.dataset.scCat;
@@ -1129,7 +1179,7 @@ function setupAutoScroll() {
     delta = 0;
   }
   document.addEventListener("dragover", (e) => {
-    if (!document.querySelector(".chip.dragging, .card.dragging")) { stop(); return; }
+    if (!document.querySelector(".chip.dragging, .card.dragging, .rowbreak.dragging")) { stop(); return; }
     const y = e.clientY;
     const h = window.innerHeight;
     if (y < EDGE) delta = -MAX_SPEED * (1 - y / EDGE);

@@ -445,6 +445,11 @@ def get_bookmarks(x_token: Optional[str] = Header(default=None)):
     for b in items:
         if "starred" not in b:
             b["starred"] = False
+        # 줄바꿈 라인: 경로 없음, 검사 스킵
+        if b.get("type") == "rowbreak":
+            b["exists"] = True
+            b["last_modified"] = None
+            continue
         if b.get("type") == "link":
             b["exists"] = True
             b["last_modified"] = None
@@ -521,16 +526,53 @@ def add_bookmark(body: Bookmark, x_token: Optional[str] = Header(default=None)):
     return item
 
 
+class RowBreakIn(BaseModel):
+    category: str
+
+
+@app.post("/api/bookmarks-rowbreak")
+def add_rowbreak(body: RowBreakIn, x_token: Optional[str] = Header(default=None)):
+    """미니카드 사이에 끼우는 '줄바꿈 라인'. 해당 카테고리 끝에 추가됨.
+
+    줄바꿈은 경로가 없는 특수 항목(type=rowbreak)으로, bookmarks 목록에서
+    순서만 차지한다. 드래그로 위치 이동, 편집 모드에서 ✕로 제거.
+    """
+    require_token(x_token)
+    items = load_bookmarks()
+    item = {
+        "id": secrets.token_hex(6),
+        "folder": "",
+        "name": "",
+        "note": "",
+        "category": body.category,
+        "type": "rowbreak",
+        "added_at": int(dt.datetime.now().timestamp()),
+    }
+    # 같은 카테고리 마지막 항목 바로 뒤에 끼워넣기 (없으면 맨 끝)
+    last_idx = -1
+    for i, b in enumerate(items):
+        if b.get("category") == body.category:
+            last_idx = i
+    if last_idx >= 0:
+        items.insert(last_idx + 1, item)
+    else:
+        items.append(item)
+    save_bookmarks(items)
+    append_log(f"➖ 줄바꿈 추가: {body.category}")
+    return item
+
+
 class BookmarkPatch(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     note: Optional[str] = None
+    folder: Optional[str] = None
     starred: Optional[bool] = None
 
 
 @app.patch("/api/bookmarks/{bookmark_id}")
 def update_bookmark(bookmark_id: str, body: BookmarkPatch, x_token: Optional[str] = Header(default=None)):
-    """폴더 바로가기 카테고리 이동 / 이름·노트 수정 (칩 드래그용)."""
+    """폴더 바로가기 카테고리 이동 / 이름·노트·경로 수정 (칩 드래그 + 편집 모달용)."""
     require_token(x_token)
     items = load_bookmarks()
     b = next((b for b in items if b.get("id") == bookmark_id), None)
@@ -540,6 +582,17 @@ def update_bookmark(bookmark_id: str, body: BookmarkPatch, x_token: Optional[str
     if body.category is not None: b["category"] = body.category
     if body.note is not None: b["note"] = body.note
     if body.starred is not None: b["starred"] = body.starred
+    if body.folder is not None:
+        raw = body.folder.strip().strip('"').strip("'")
+        b["folder"] = raw
+        # 경로가 바뀌면 폴더 / 파일 / 링크 종류 재판별
+        if raw.startswith(("http://", "https://")):
+            b["type"] = "link"
+        else:
+            try:
+                b["type"] = "file" if Path(raw).is_file() else "folder"
+            except Exception:
+                b["type"] = "folder"
     save_bookmarks(items)
     return b
 
