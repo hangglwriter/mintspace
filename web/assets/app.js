@@ -347,7 +347,7 @@ function renderRowBreak(b, cat) {
   Object.entries(categoryStyle(cat)).forEach(([k, v]) => el.style.setProperty(k, v));
   el.innerHTML = `
     <span class="rowbreak-label">⸻ 줄바꿈 ⸻</span>
-    <button class="chip-del rowbreak-del" data-bm-del="${b.id}" title="줄바꿈 제거">×</button>
+    <button class="rowbreak-del" data-bm-del="${b.id}" title="줄바꿈 제거">×</button>
   `;
   el.addEventListener("click", async (e) => {
     const delBtn = e.target.closest("[data-bm-del]");

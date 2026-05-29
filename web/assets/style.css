@@ -771,14 +771,27 @@ body.edit-mode .chip-edit { display: none; }
 .rowbreak:hover::before,
 .rowbreak:hover::after { opacity: 0.8; }
 .rowbreak.dragging { opacity: 0.4; }
-.rowbreak .rowbreak-del { top: 50%; right: 2px; transform: translateY(-50%); }
 body.edit-mode .rowbreak { cursor: default; }
-body.edit-mode .rowbreak .rowbreak-del {
+/* 줄바꿈 ✕ — 편집 모드와 무관하게 hover 시 바로 삭제 (항목 수가 자주 바뀌니 넣고 빼기 쉽게) */
+.rowbreak-del {
+  position: absolute;
   top: 50%;
   right: 2px;
   transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  transition: opacity .12s, color .12s, transform .1s;
 }
-body.edit-mode .rowbreak .rowbreak-del:hover { transform: translateY(-50%) scale(1.12); }
+.rowbreak:hover .rowbreak-del { opacity: 0.7; }
+.rowbreak-del:hover { opacity: 1; color: var(--danger); transform: translateY(-50%) scale(1.2); }
 
 .shortcuts.drag-active {
   outline: 2px dashed transparent;
