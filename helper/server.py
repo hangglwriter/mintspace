@@ -8,6 +8,16 @@
 
 from __future__ import annotations
 
+import sys as _sys
+
+# pythonw.exe(콘솔 없음)로 띄우면 sys.stdout/stderr 가 None 이라
+# uvicorn 컬러 로깅의 sys.stdout.isatty() 에서 죽는다. 더미로 채워 방지.
+import os as _os
+if _sys.stdout is None:
+    _sys.stdout = open(_os.devnull, "w", encoding="utf-8")
+if _sys.stderr is None:
+    _sys.stderr = open(_os.devnull, "w", encoding="utf-8")
+
 import datetime as dt
 import json
 import logging
@@ -99,6 +109,11 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Chrome PNA(Private Network Access): HTTPS(Vercel) → localhost 헬퍼 접근 시
+    # 브라우저가 preflight 에 'Access-Control-Request-Private-Network: true' 를 붙여 보냄.
+    # 이 옵션이 없으면 Starlette CORSMiddleware 가 400 "Disallowed CORS private-network" 로
+    # 거부 → Vercel 화면에서 바로가기가 안 뜸. (메모리 [[mintspace-pna-localhost]])
+    allow_private_network=True,
 )
 
 
@@ -282,7 +297,7 @@ def launch_terminal(body: ProjectRef, x_token: Optional[str] = Header(default=No
     if WT and "pwsh" in PWSH.lower():
         try:
             args = [
-                WT, "new-tab",
+                WT, "-w", "new", "new-tab",
                 "--title", title,
                 "-d", folder_str,
                 PWSH, "-NoExit", "-Command", "cldp",
