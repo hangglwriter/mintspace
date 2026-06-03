@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026052904" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026060301" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -94,13 +94,15 @@
         </div>
       </section>
 
-      <!-- 즐겨찾기 (별표 ★ 모음) -->
+      <!-- 즐겨찾기 (전용 항목 + 별표 ★ 모음) -->
       <section id="favorites" class="section favorites-section hidden">
         <div class="section-header">
           <h2><span class="section-icon">⭐</span> 즐겨찾기</h2>
-          <span class="section-sub">자주 쓰는 항목 모음 · 카드의 ★를 눌러 토글 (다 쓰면 해제)</span>
+          <span class="section-sub">카테고리 무관 · 자주 쓰는 폴더 / 문서 / 링크를 여기에 직접 추가 · 카드의 ★ 토글이나 드래그로도 모임</span>
+          <button class="section-action" data-add-bm="__fav__" title="자주 쓰는 폴더 / 파일 / 링크를 즐겨찾기에 바로 추가">+ 바로가기</button>
+          <button class="section-action" data-add-rowbreak="__fav__" title="즐겨찾기 항목을 줄로 나누기 (줄바꿈 라인 추가, 드래그로 위치 이동)">+ 줄바꿈</button>
         </div>
-        <div class="shortcuts" id="favorites-grid"></div>
+        <div class="shortcuts" id="favorites-grid" data-sc-cat="__fav__"></div>
       </section>
 
       <!-- 카테고리별 프로젝트 -->
@@ -244,6 +246,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026052904"></script>
+  <script src="/assets/app.js?v=2026060301"></script>
 </body>
 </html>

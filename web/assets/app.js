@@ -1,5 +1,10 @@
 // 민티스페이스 v0.2 — 좌측 사이드바 + 책갈피 + 카테고리/프로젝트 추가
 
+// 즐겨찾기 전용 가상 카테고리 ID. 이 카테고리의 bookmark/rowbreak 는
+// 실제 카테고리 목록에 없으므로 메인 영역엔 안 뜨고 즐겨찾기 섹션에만 렌더된다.
+// (카테고리 무관 "자주 쓰는 링크" 모음 + 줄바꿈 지원)
+const FAV_CAT = "__fav__";
+
 const HELPER_DEFAULT = ["localhost", "127.0.0.1"].includes(location.hostname)
   ? `${location.protocol}//${location.hostname}:5500`
   : `http://localhost:5500`;
@@ -111,7 +116,9 @@ function renderSidebar() {
     nav.appendChild(item);
   }
 
-  $("#nav-bookmark-count").textContent = STATE.bookmarks.filter(b => b.type !== "rowbreak").length || "";
+  // 즐겨찾기 전용 항목(__fav__)은 별도 카운터(⭐)로 세므로 여기선 제외
+  $("#nav-bookmark-count").textContent =
+    STATE.bookmarks.filter(b => b.type !== "rowbreak" && b.category !== FAV_CAT).length || "";
 }
 
 // ===== 메인 카테고리 + 카드 =====
@@ -406,29 +413,47 @@ function renderProjectChip(p, cat) {
   return chip;
 }
 
-// 별표 모음 섹션: 프로젝트(📦) + 미니카드(📁/📄/🔗) 한 줄에 카테고리 무관 모음
+// 즐겨찾기 섹션: ① 즐겨찾기 전용 항목(__fav__, 줄바꿈 포함, 순서 유지)
+//              ② 별표된 프로젝트(📦)  ③ 다른 카테고리에서 별표된 미니카드
+// 카테고리 무관 "자주 쓰는 링크" 를 직접 추가하거나 다른 카드를 끌어다 모을 수 있다.
+const FAV_CAT_META = { id: FAV_CAT, color: "#f59e0b", icon: "⭐", name: "즐겨찾기" };
+
 function renderFavorites() {
   const sec = $("#favorites");
   const grid = $("#favorites-grid");
   if (!sec || !grid) return;
-  const starredBm = STATE.bookmarks.filter(b => b.starred);
+  // ① 즐겨찾기 전용 항목 (글로벌 순서 유지 · 줄바꿈 라인 포함)
+  const favNative = STATE.bookmarks.filter(b => b.category === FAV_CAT);
+  // ②③ 별표된 항목 (전용 항목과 겹치지 않게 __fav__ 는 제외해 중복 방지)
+  const starredBm = STATE.bookmarks.filter(b => b.starred && b.category !== FAV_CAT);
   const starredPj = (STATE.data.projects || []).filter(p => p.starred);
-  const total = starredBm.length + starredPj.length;
+
+  const realFavCount = favNative.filter(b => b.type !== "rowbreak").length;
+  const total = realFavCount + starredBm.length + starredPj.length;
   const navCount = $("#nav-fav-count");
   if (navCount) navCount.textContent = total || "";
-  if (total === 0) {
+
+  // 전용 항목이 하나라도 있으면, 비어 보여도 [+ 바로가기] 버튼은 계속 쓸 수 있게
+  // 섹션은 띄워둔다. (전용 항목 0 + 별표 0 일 때만 숨김)
+  if (total === 0 && favNative.length === 0) {
     sec.classList.add("hidden");
     grid.innerHTML = "";
     return;
   }
   sec.classList.remove("hidden");
   grid.innerHTML = "";
-  // 프로젝트 먼저 (작업 중인 게 우선 보임)
+
+  // ① 즐겨찾기 전용 (줄바꿈 포함, 순서 유지)
+  for (const b of favNative) {
+    grid.appendChild(b.type === "rowbreak" ? renderRowBreak(b, FAV_CAT_META) : renderChip(b, FAV_CAT_META));
+  }
+  // ② 별표된 프로젝트
   for (const p of starredPj) {
     const cat = STATE.data.categories.find(c => c.id === p.category)
       || { id: p.category, color: "#888", icon: "📁", name: p.category || "기타" };
     grid.appendChild(renderProjectChip(p, cat));
   }
+  // ③ 다른 카테고리에서 별표된 미니카드
   for (const b of starredBm) {
     const cat = STATE.data.categories.find(c => c.id === b.category)
       || { id: b.category, color: "#888", icon: "📁", name: b.category || "기타" };
@@ -439,9 +464,12 @@ function renderFavorites() {
 function fillBookmarkCatSelect(selectedId) {
   const sel = $("#bm-category");
   if (!sel) return;
-  sel.innerHTML = STATE.data.categories
-    .map(c => `<option value="${c.id}">${c.icon || "📁"} ${c.name}</option>`)
-    .join("");
+  // 맨 위에 "⭐ 즐겨찾기" 가상 카테고리 → 어떤 추가창에서든 즐겨찾기로 바로 보낼 수 있게
+  sel.innerHTML =
+    `<option value="${FAV_CAT}">⭐ 즐겨찾기</option>`
+    + STATE.data.categories
+      .map(c => `<option value="${c.id}">${c.icon || "📁"} ${c.name}</option>`)
+      .join("");
   if (selectedId) sel.value = selectedId;
 }
 
@@ -645,10 +673,12 @@ function setupSearch() {
 // ===== 카드 편집 모달 (이름 + 카테고리 공통) =====
 let renameTarget = null;
 
-function fillRenameCatSelect(selectedId) {
+function fillRenameCatSelect(selectedId, kind) {
   const sel = $("#rn-category");
   if (!sel) return;
-  sel.innerHTML = STATE.data.categories
+  // 미니카드(bookmark)만 즐겨찾기로 이동 가능 (프로젝트는 서버가 실제 카테고리만 허용)
+  const favOpt = kind === "bookmark" ? `<option value="${FAV_CAT}">⭐ 즐겨찾기</option>` : "";
+  sel.innerHTML = favOpt + STATE.data.categories
     .map(c => `<option value="${c.id}">${c.icon || "📁"} ${c.name}</option>`)
     .join("");
   if (selectedId) sel.value = selectedId;
@@ -658,7 +688,7 @@ function openRenameModal(kind, id, currentName, currentCategory, currentFolder) 
   renameTarget = { kind, id };
   $("#rn-name").value = currentName || "";
   $("#rn-folder").value = currentFolder || "";
-  fillRenameCatSelect(currentCategory);
+  fillRenameCatSelect(currentCategory, kind);
   $("#rename-modal").classList.remove("hidden");
   // focus / select 는 모달이 보이고 난 뒤
   setTimeout(() => { $("#rn-name").focus(); $("#rn-name").select(); }, 0);
@@ -1030,10 +1060,16 @@ function setupChipDrag() {
         const b = STATE.bookmarks.find(x => x.id === bid);
         if (b) b.category = newCat;
       }
-      // 전체 순서 저장 (카테고리별 shortcuts DOM 순서 = 전역 bookmarks 순서)
-      // 줄바꿈 라인(.rowbreak)도 위치를 차지하므로 함께 수집. 즐겨찾기 섹션은 제외.
+      // 전체 순서 저장 (DOM 순서 = 전역 bookmarks 순서). 줄바꿈 라인(.rowbreak)도
+      // 위치를 차지하므로 함께 수집. 즐겨찾기 섹션(__fav__ 전용 항목)도 포함해
+      // 즐겨찾기 안에서의 순서 변경도 저장되게 한다.
+      // 별표 항목은 자기 카테고리 + 즐겨찾기 양쪽에 같은 data-bid 로 중복 존재하므로
+      // Set 으로 중복 제거 (문서 순서상 즐겨찾기가 먼저라 첫 등장만 채택).
       const newOrder = [];
-      $$("#categories-area .shortcuts [data-bid]").forEach(c => newOrder.push(c.dataset.bid));
+      const seenBid = new Set();
+      $$("#favorites-grid [data-bid], #categories-area .shortcuts [data-bid]").forEach(c => {
+        if (!seenBid.has(c.dataset.bid)) { seenBid.add(c.dataset.bid); newOrder.push(c.dataset.bid); }
+      });
       await api("/api/bookmarks-order", {
         method: "POST",
         body: JSON.stringify({ ids: newOrder }),
