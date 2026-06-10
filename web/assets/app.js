@@ -241,7 +241,7 @@ function renderCard(p, cat) {
       return;
     }
     if (action === "edit") {
-      openRenameModal("project", p.id, p.name, p.category, p.folder);
+      openRenameModal("project", p.id, p.name, p.category, p.folder, p.url);
       return;
     }
     if (STATE.editMode) return;  // 편집 모드에선 그 외 액션 비활성 (실수 방지)
@@ -684,11 +684,17 @@ function fillRenameCatSelect(selectedId, kind) {
   if (selectedId) sel.value = selectedId;
 }
 
-function openRenameModal(kind, id, currentName, currentCategory, currentFolder) {
+function openRenameModal(kind, id, currentName, currentCategory, currentFolder, currentUrl) {
   renameTarget = { kind, id };
   $("#rn-name").value = currentName || "";
   $("#rn-folder").value = currentFolder || "";
   fillRenameCatSelect(currentCategory, kind);
+  // 프로젝트만: 폴더 경로와 별개로 배포 사이트 URL 칸을 따로 보여줌
+  // (프로젝트 먼저 만들고 나중에 사이트 붙이는 흐름 대응)
+  const isProject = kind === "project";
+  $("#rn-url-row").style.display = isProject ? "" : "none";
+  $("#rn-url").value = isProject ? (currentUrl || "") : "";
+  $("#rn-folder-label").textContent = isProject ? "폴더 경로" : "경로 또는 URL";
   $("#rename-modal").classList.remove("hidden");
   // focus / select 는 모달이 보이고 난 뒤
   setTimeout(() => { $("#rn-name").focus(); $("#rn-name").select(); }, 0);
@@ -705,10 +711,16 @@ function setupRenameModal() {
     const endpoint = renameTarget.kind === "bookmark"
       ? `/api/bookmarks/${renameTarget.id}`
       : `/api/projects-meta/${renameTarget.id}`;
+    const payload = { name: next, category: newCat, folder };
+    // 프로젝트는 사이트 URL 도 함께 저장. 빈 칸이면 "" 전송 → 서버가 null 로 저장해 🌐 버튼 제거
+    // (null 을 보내면 pydantic Optional 이 "미전송"과 구분 못 해 서버가 무시함)
+    if (renameTarget.kind === "project") {
+      payload.url = $("#rn-url").value.trim();
+    }
     try {
       await api(endpoint, {
         method: "PATCH",
-        body: JSON.stringify({ name: next, category: newCat, folder }),
+        body: JSON.stringify(payload),
       });
       $("#rename-modal").classList.add("hidden");
       toast(`✏ "${next}" 저장됨`);

@@ -444,7 +444,8 @@ def update_project(project_id: str, body: ProjectPatch, x_token: Optional[str] =
         p["category"] = body.category
     if body.name is not None: p["name"] = body.name
     if body.folder is not None: p["folder"] = body.folder
-    if body.url is not None: p["url"] = body.url
+    # 빈 문자열로 오면 None 으로 저장 → 카드에서 🌐 사이트 버튼 제거 (URL 지우기 지원)
+    if body.url is not None: p["url"] = body.url or None
     if body.note is not None: p["note"] = body.note
     if body.starred is not None: p["starred"] = body.starred
     save_projects_data(data)
@@ -755,10 +756,28 @@ def harness_page():
 app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="assets")
 
 
+def _startup_log(msg: str) -> None:
+    """자동기동(pythonw, 콘솔 없음) 추적용. silent fail 시 원인 진단 단서를 파일에 남김.
+    부팅 시 헬퍼가 안 떴을 때 data/helper-startup.log 를 보면 START/CRASH/STOP 흔적 확인 가능."""
+    try:
+        with (DATA_DIR / "helper-startup.log").open("a", encoding="utf-8") as f:
+            f.write(f"{dt.datetime.now().isoformat(timespec='seconds')}  {msg}\n")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("MINTSPACE_PORT", "5500"))
     print(f"\n  민티스페이스 헬퍼 v0.2.0")
     print(f"  http://localhost:{port}")
     print(f"  토큰: {TOKEN}\n")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    _startup_log(f"START pid={os.getpid()} port={port} exe={_sys.executable}")
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    except Exception as e:
+        _startup_log(f"CRASH {type(e).__name__}: {e}")
+        _startup_log(traceback.format_exc())
+        raise
+    finally:
+        _startup_log("STOP")

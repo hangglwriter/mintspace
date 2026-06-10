@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026060301" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026061001" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -219,9 +219,14 @@
       <input id="rn-name" type="text" />
       <label>카테고리</label>
       <select id="rn-category"></select>
-      <label>경로 또는 URL</label>
+      <label id="rn-folder-label">경로 또는 URL</label>
       <input id="rn-folder" type="text" placeholder="D:\path\to\folder / 문서.hwp / https://..." />
-      <p class="hint-tiny">표시 이름·카테고리·경로(이 카드가 가리키는 위치)를 바꿀 수 있어. 실제 폴더/파일 자체는 안 바뀜. 경로를 바꾸면 폴더/문서/링크 종류는 자동 재판별돼.</p>
+      <p class="hint-tiny" id="rn-folder-hint">표시 이름·카테고리·경로(이 카드가 가리키는 위치)를 바꿀 수 있어. 실제 폴더/파일 자체는 안 바뀜. 경로를 바꾸면 폴더/문서/링크 종류는 자동 재판별돼.</p>
+      <div id="rn-url-row" style="display:none">
+        <label>🌐 사이트 URL (선택)</label>
+        <input id="rn-url" type="text" placeholder="https://..." />
+        <p class="hint-tiny">프로젝트가 배포된 사이트 주소. 입력하면 카드에 🌐 사이트 버튼이 생겨 (폴더 경로와는 별개). 비우면 버튼이 사라져.</p>
+      </div>
       <div class="modal-actions">
         <button class="link-btn" onclick="document.getElementById('rename-modal').classList.add('hidden')">취소</button>
         <button id="rn-save" class="primary-btn">저장</button>
@@ -246,6 +251,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026060301"></script>
+  <script src="/assets/app.js?v=2026061001"></script>
 </body>
 </html>
