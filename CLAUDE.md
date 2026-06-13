@@ -30,6 +30,8 @@
 - [x] **카드 편집에 경로 변경** (2026-05-29) - ✏ 편집 모달에 "경로 또는 URL" 칸 추가 (프로젝트 + 미니카드). 미니카드는 경로 바꾸면 폴더/파일/링크 type 자동 재판별 (`BookmarkPatch.folder`)
 - [x] **즐겨찾기에 직접 추가 + 줄바꿈** (2026-06-03) - 즐겨찾기 섹션 헤더에 [+ 바로가기] [+ 줄바꿈] 추가. 가상 카테고리 `__fav__`(`FAV_CAT`) 사용 → 실제 카테고리 목록에 없으므로 메인 영역엔 안 뜨고 즐겨찾기에만 렌더(카테고리 무관 "자주 쓰는 링크" 모음). 버튼은 기존 `data-add-bm` / `data-add-rowbreak` 위임 재사용(별도 JS 배선 없음). 바로가기/카드편집 모달 카테고리 드롭다운 맨 위에 "⭐ 즐겨찾기" 옵션(미니카드만, 프로젝트는 서버가 실제 카테고리만 허용). `renderFavorites` = ①`__fav__` 전용(줄바꿈 포함, 순서 유지) ②별표 프로젝트 ③다른 카테고리 별표 미니카드(중복 방지 위해 `__fav__` 제외). favorites-grid 에 `data-sc-cat=__fav__` → 드래그로 즐겨찾기 ↔ 카테고리 끌어 옮기기 + 즐겨찾기 내부 순서변경. 칩 순서 수집을 `#favorites-grid` 포함으로 확장 + Set 중복제거(별표 항목은 자기 카테고리+즐겨찾기 양쪽에 같은 data-bid 로 존재). 서버 변경 없음. 캐시 `?v=2026060301`
 - [x] **미니카드 줄바꿈 라인** (2026-05-29) - 카테고리 헤더 [+ 줄바꿈] → `type=rowbreak` 특수 bookmark 추가. CSS `grid-column:1/-1` 로 한 줄 전체 차지 → 뒤 카드 다음 줄로 밀어 줄 단위 그룹화. 드래그로 위치 이동(칩 드래그 시스템에 `.rowbreak` 포함), 편집 모드 ✕로 제거. 순서 수집은 `#categories-area .shortcuts [data-bid]` (즐겨찾기 제외 + rowbreak 포함). 검색/카운트에서 제외. `POST /api/bookmarks-rowbreak`
+- [x] **cldp 터미널 탭/새창 분기** (2026-06-13) - 카드 `💬 cldp` 버튼: **그냥 클릭 = `-w 0`**(가장 최근 wt 창에 탭으로) / **Shift+클릭 = `-w new`**(새 창 = 새 그룹). 프론트는 `e.shiftKey` → `new_window` 로 전달. 옛 `-w new` 매번 새 창에서 변경. pythonw 백그라운드는 foreground lock 때문에 탭 붙여도 작업표시줄만 깜빡임 → Popen 직전 `AllowSetForegroundWindow(-1)`(`_allow_foreground()`) 가드로 앞으로 올림. **동기**: 수동으로 탭을 드래그-합치다 창 전체가 종료되던 사고 방지 (처음부터 의도한 창에 탭으로 열어 합칠 일 자체를 없앰)
+- [x] **탭 그룹 (워크스페이스)** (2026-06-13) - 자주 같이 여는 프로젝트를 묶어 **버튼 하나로 새 창 하나에 cldp 탭 좌르륵**. 직접 생성/편집/삭제, 멤버는 모달 체크박스로 넣다 뺐다, 여러 그룹 가능. `[▶ 전체 열기]` → `wt -w new` + 각 멤버 `new-tab` 을 `;`(wt 서브커맨드 구분자)로 이어붙여 한 창에 탭. 멤버 폴더 없으면 skip. WT 없으면 개별 새 콘솔 폴백. groups 는 `projects.json` 에 저장(로컬 전용, gitignore). 사이드바 nav `🗂 탭 그룹` + `#tab-groups` 섹션 + `#group-modal`. JS `renderGroups`/`renderGroupCard`/`openGroupModal`/`setupGroupModal`, 편집모드 연동(✕ 배지 + 열기 비활성)
 
 ### 다음 할 것
 - [ ] 바탕화면 스캔에 파일 포함 옵션 (지금은 폴더만 일괄 수집; 파일은 모달로 개별 추가)
@@ -43,7 +45,8 @@
 - **프로젝트(큰 카드)**: GET `/api/projects` · POST/PATCH/DELETE `/api/projects-meta/{id}` · POST `/api/projects-order`
 - **카테고리**: POST `/api/categories` · PATCH/DELETE `/api/categories/{id}`
 - **바로가기(미니카드)**: GET/POST `/api/bookmarks` · PATCH/DELETE `/api/bookmarks/{id}` (PATCH 에 folder 도 지원 → type 재판별) · POST `/api/bookmarks-order` · POST `/api/bookmarks-import` (바탕화면 스캔) · POST `/api/bookmarks-rowbreak` (줄바꿈 라인)
-- **액션**: POST `/api/open-folder` (폴더/파일 둘 다 `os.startfile`) · POST `/api/launch-terminal` (cldp)
+- **액션**: POST `/api/open-folder` (폴더/파일 둘 다 `os.startfile`) · POST `/api/launch-terminal` (cldp, `new_window` true=새창/false=최근창 탭)
+- **탭 그룹**: GET/POST `/api/groups` · PATCH/DELETE `/api/groups/{id}` · POST `/api/groups/{id}/launch` (멤버 전부 한 창에 탭으로)
 - **추천**: GET `/api/star-suggestions?days=7&threshold=5` (`helper/auto_star.py` logs 분석)
 - **인증**: POST `/api/token-bootstrap` (로컬 IP 에서만 자동 발급)
 - **헬스**: GET `/api/health`
@@ -53,10 +56,10 @@
 - 데이터 파일 `.gitignore` 이라 다른 PC / 배포에선 빈 상태로 보임 (NAS 경로 노출 방지 의도)
 - 외부(Vercel) 접속 시엔 사이드바 ⚙ 설정에서 헬퍼 URL + 토큰 입력 필요
 - 헬퍼 재시작 필요 시점: `server.py` / `desktop_scan.py` 변경 시. 정적 파일(html/js/css) 만 바뀌면 새로고침으로 충분
-- **캐시 버스팅**: `web/index.html` 의 `?v=YYYYMMDDNN` 버전 안 올리면 브라우저가 옛 js/css 사용 (현재 `?v=2026060301`)
+- **캐시 버스팅**: `web/index.html` 의 `?v=YYYYMMDDNN` 버전 안 올리면 브라우저가 옛 js/css 사용 (현재 `?v=2026061302`)
 - bat 파일 직접 수정 금지 (CP949+CRLF 인코딩 필요. Python 으로 저장하거나 PowerShell 분리)
 - ✅ **안전 start.bat 재구축 (2026-05-30)**: `start.bat` = health 체크 후 "이미 떠 있으면 재기동 안 함" + 강제 종료 절대 안 함 + `pythonw` 절대경로로 기동. 윈도우 시작프로그램(`시작 폴더\mintspace-helper.lnk`, 최소화)에 등록돼 **부팅 시 자동 기동**. 메모리 [[mintspace-helper-restart-footgun]] 참고
-- **터미널 띄우기 = 항상 새 창**: `launch-terminal` 이 `wt -w new new-tab` 으로 매번 새 창 생성(2026-05-30 변경). `-w` 없이 `new-tab` 만 쓰면 기존 wt 창에 탭만 붙어 작업표시줄에서 깜빡이기만 함(포커스 안 옴). 새 창이라야 포그라운드로 잘 올라옴.
+- **터미널 띄우기 (2026-06-13 갱신)**: `launch-terminal` 은 클릭=`-w 0`(최근 wt 창에 탭) / Shift+클릭=`-w new`(새 창). 탭 그룹은 `-w new` + `;` 로 한 창에 멀티탭. 옛날엔 `new-tab` 만 쓰면 깜빡이기만 했는데(포커스 안 옴), 그건 pythonw 백그라운드의 foreground lock 때문이었음 → `_allow_foreground()`(`AllowSetForegroundWindow(-1)`)로 해결. 이 가드 지우면 탭 모드에서 다시 작업표시줄만 깜빡임.
 
 ## 관련 메모리
 
