@@ -598,6 +598,48 @@ function setupGroupModal() {
   if (nameInput) nameInput.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
 }
 
+// ─────────────────────────── 작업 복원 ───────────────────────────
+async function openRestoreModal() {
+  if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
+  const box = $("#restore-list");
+  box.innerHTML = `<p class="hint-tiny">불러오는 중...</p>`;
+  $("#restore-modal").classList.remove("hidden");
+  let data;
+  try { data = await api("/api/restore-candidates?window=360"); }
+  catch (err) { box.innerHTML = `<p class="hint-tiny">실패: ${err.message}</p>`; return; }
+  const list = data.candidates || [];
+  if (!list.length) {
+    box.innerHTML = `<p class="hint-tiny">최근 cldp로 연 터미널 기록이 없어. (카드의 💬 cldp로 한 번 열면 기록돼서 다음부터 복원돼)</p>`;
+    return;
+  }
+  box.innerHTML = list.map(c => `
+    <label class="grp-check ${c.exists ? "on" : ""}">
+      <input type="checkbox" value="${c.id}" ${c.exists ? "checked" : ""} ${c.exists ? "" : "disabled"}/>
+      <span class="grp-check-cat">${c.exists ? "💬" : "⚠"}</span>
+      <span class="grp-check-name">${c.name}${c.exists ? "" : " (폴더 없음)"}</span>
+    </label>`).join("");
+  box.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => cb.closest(".grp-check").classList.toggle("on", cb.checked));
+  });
+}
+
+function setupRestore() {
+  const btn = $("#restore-btn");
+  if (btn) btn.addEventListener("click", openRestoreModal);
+  const confirmBtn = $("#restore-confirm");
+  if (confirmBtn) confirmBtn.addEventListener("click", async () => {
+    const ids = $$("#restore-list input[type=checkbox]:checked").map(cb => cb.value);
+    if (!ids.length) return toast("복원할 프로젝트를 골라줘", "err");
+    confirmBtn.disabled = true;
+    try {
+      const r = await api("/api/restore-launch", { method: "POST", body: JSON.stringify({ ids }) });
+      $("#restore-modal").classList.add("hidden");
+      toast(`🕐 ${r.opened}개 탭으로 복원됨`);
+    } catch (err) { toast("실패: " + err.message, "err"); }
+    finally { confirmBtn.disabled = false; }
+  });
+}
+
 function fillBookmarkCatSelect(selectedId) {
   const sel = $("#bm-category");
   if (!sel) return;
@@ -1388,6 +1430,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupCategoryModal();
   setupProjectModal();
   setupGroupModal();
+  setupRestore();
   setupDragAndDrop();
   setupChipDrag();
   setupSidebarDropZones();

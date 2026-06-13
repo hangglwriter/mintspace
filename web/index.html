@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026061303" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026061304" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -75,6 +75,10 @@
         <button id="suggest-btn" class="suggest-btn hidden" title="자주 여는 폴더 자동 별표 추천 (최근 7일 로그 기반)">
           <span>💡</span>
           <span class="suggest-label">추천 <strong id="suggest-count">0</strong></span>
+        </button>
+        <button id="restore-btn" class="edit-btn" title="마지막 작업 세션에 연 cldp 터미널들을 새 창 하나에 탭으로 다시 열기">
+          <span>🕐</span>
+          <span class="edit-label">작업 복원</span>
         </button>
         <button id="edit-toggle" class="edit-btn" title="편집 모드 - 카드/폴더 삭제용 (ESC로 해제)">
           <span class="edit-icon">✎</span>
@@ -290,6 +294,18 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026061303"></script>
+  <div id="restore-modal" class="modal hidden">
+    <div class="modal-inner modal-wide">
+      <h3>🕐 작업 복원</h3>
+      <p class="hint-tiny">마지막 작업 세션에 cldp로 연 프로젝트들이야. 체크해서 <strong>새 창 하나에 탭으로</strong> 다시 열어.</p>
+      <div id="restore-list" class="grp-checklist"></div>
+      <div class="modal-actions">
+        <button class="link-btn" onclick="document.getElementById('restore-modal').classList.add('hidden')">취소</button>
+        <button id="restore-confirm" class="primary-btn">선택 복원</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js?v=2026061304"></script>
 </body>
 </html>

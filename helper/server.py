@@ -22,6 +22,7 @@ import datetime as dt
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -424,6 +425,45 @@ def delete_group(group_id: str, x_token: Optional[str] = Header(default=None)):
     return {"ok": True}
 
 
+def _open_projects_in_one_window(members: list, label: str) -> dict:
+    """members(프로젝트 dict 리스트)를 새 창 하나에 cldp 탭으로 연다.
+
+    그룹 launch · 작업 복원 공통. 폴더 존재 검증은 호출측 책임.
+    """
+    # 시도 1: Windows Terminal — 새 창 1개 + new-tab 들을 ';' 로 이어붙임
+    if WT and "pwsh" in PWSH.lower():
+        try:
+            args = [WT, "-w", "new"]
+            for i, p in enumerate(members):
+                if i > 0:
+                    args.append(";")  # wt 서브커맨드 구분자 → 같은 창에 다음 탭
+                args += _cldp_tab(str(Path(p["folder"])), p.get("id") or Path(p["folder"]).name)
+            log.info("멀티탭 터미널(wt): %s", " ".join(args))
+            _allow_foreground()
+            subprocess.Popen(args)
+            append_log(f"🗂 [{label}] cldp {len(members)}개 탭 시작")
+            return {"ok": True, "via": "wt", "opened": len(members)}
+        except Exception as e:
+            log.error("멀티탭 wt 실행 실패: %s\n%s", e, traceback.format_exc())
+            # 폴백으로 진행
+
+    # 시도 2: WT 없음 → 각각 새 콘솔로 (탭은 못 묶지만 일단 열기)
+    opened = 0
+    for p in members:
+        try:
+            subprocess.Popen(
+                [PWSH, "-NoExit", "-WorkingDirectory", str(Path(p["folder"])), "-Command", "cldp"],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+            )
+            opened += 1
+        except Exception as e:
+            log.error("멀티탭 pwsh 실행 실패(%s): %s", p.get("id"), e)
+    if not opened:
+        raise HTTPException(status_code=500, detail="터미널 실행 실패")
+    append_log(f"🗂 [{label}] cldp {opened}개 (개별 창)")
+    return {"ok": True, "via": "pwsh", "opened": opened}
+
+
 @app.post("/api/groups/{group_id}/launch")
 def launch_group(group_id: str, x_token: Optional[str] = Header(default=None)):
     """그룹의 모든 프로젝트 cldp 를 새 창 하나에 탭으로 한꺼번에 연다."""
@@ -444,38 +484,84 @@ def launch_group(group_id: str, x_token: Optional[str] = Header(default=None)):
     if not members:
         raise HTTPException(status_code=400, detail="열 수 있는 프로젝트가 없음 (폴더 없음/멤버 없음)")
 
-    # 시도 1: Windows Terminal — 새 창 1개 + new-tab 들을 ';' 로 이어붙임
-    if WT and "pwsh" in PWSH.lower():
-        try:
-            args = [WT, "-w", "new"]
-            for i, p in enumerate(members):
-                if i > 0:
-                    args.append(";")  # wt 서브커맨드 구분자 → 같은 창에 다음 탭
-                args += _cldp_tab(str(Path(p["folder"])), p.get("id") or Path(p["folder"]).name)
-            log.info("그룹 터미널(wt): %s", " ".join(args))
-            _allow_foreground()
-            subprocess.Popen(args)
-            append_log(f"🗂 [{g['name']}] 그룹 cldp {len(members)}개 탭 시작")
-            return {"ok": True, "via": "wt", "opened": len(members), "skipped": skipped}
-        except Exception as e:
-            log.error("그룹 wt 실행 실패: %s\n%s", e, traceback.format_exc())
-            # 폴백으로 진행
+    res = _open_projects_in_one_window(members, g["name"])
+    res["skipped"] = skipped
+    return res
 
-    # 시도 2: WT 없음 → 각각 새 콘솔로 (탭은 못 묶지만 일단 열기)
-    opened = 0
-    for p in members:
+
+# ─────────────────────────── 작업 복원 ───────────────────────────
+# logs/*.md 의 cldp launch 기록(- HH:MM  💬 [project_id] cldp ...)을 읽어
+# 마지막 작업 세션(최근 launch 시각부터 window 분 안)에 연 프로젝트를 복원.
+
+_LAUNCH_RE = re.compile(r"^- (\d{2}):(\d{2})\s+💬 \[(.+?)\] cldp")
+
+
+def _recent_launch_pids(window_min: int = 360) -> list:
+    """최근 2일 로그에서 마지막 cldp launch 세션의 project_id 목록 (최근 연 순, 중복 제거)."""
+    entries = []  # (datetime, project_id)
+    for lf in sorted(LOG_DIR.glob("*.md"), reverse=True)[:2]:
         try:
-            subprocess.Popen(
-                [PWSH, "-NoExit", "-WorkingDirectory", str(Path(p["folder"])), "-Command", "cldp"],
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
-            opened += 1
-        except Exception as e:
-            log.error("그룹 pwsh 실행 실패(%s): %s", p.get("id"), e)
-    if not opened:
-        raise HTTPException(status_code=500, detail="그룹 터미널 실행 실패")
-    append_log(f"🗂 [{g['name']}] 그룹 cldp {opened}개 (개별 창)")
-    return {"ok": True, "via": "pwsh", "opened": opened, "skipped": skipped}
+            d = dt.date.fromisoformat(lf.stem)
+        except ValueError:
+            continue
+        for line in lf.read_text(encoding="utf-8").splitlines():
+            m = _LAUNCH_RE.match(line)
+            if m:
+                hh, mm, pid = int(m.group(1)), int(m.group(2)), m.group(3)
+                entries.append((dt.datetime.combine(d, dt.time(hh, mm)), pid))
+    if not entries:
+        return []
+    entries.sort(key=lambda e: e[0])
+    cutoff = entries[-1][0] - dt.timedelta(minutes=window_min)
+    # 윈도우 안 + 최근에 연 순(역순) + 중복 제거
+    seen, ordered = set(), []
+    for t, pid in reversed(entries):
+        if t < cutoff:
+            break
+        if pid not in seen:
+            seen.add(pid)
+            ordered.append(pid)
+    return ordered
+
+
+@app.get("/api/restore-candidates")
+def restore_candidates(window: int = 360, x_token: Optional[str] = Header(default=None)):
+    """마지막 작업 세션에 연 프로젝트 후보 목록 (이름/폴더/존재여부 포함)."""
+    require_token(x_token)
+    data = load_projects_data()
+    by_id = {p["id"]: p for p in data.get("projects", [])}
+    out = []
+    for pid in _recent_launch_pids(window):
+        p = by_id.get(pid)
+        if p:
+            out.append({
+                "id": pid,
+                "name": p.get("name", pid),
+                "folder": p["folder"],
+                "exists": Path(p["folder"]).exists(),
+            })
+        # 프로젝트로 매칭 안 되는 id(삭제됨/folder.name 등)는 복원 불가라 제외
+    return {"window": window, "candidates": out}
+
+
+@app.post("/api/restore-launch")
+def restore_launch(body: OrderIn, x_token: Optional[str] = Header(default=None)):
+    """선택한 project_id 들을 새 창 하나에 cldp 탭으로 복원."""
+    require_token(x_token)
+    data = load_projects_data()
+    by_id = {p["id"]: p for p in data.get("projects", [])}
+    members, skipped = [], []
+    for pid in body.ids:
+        p = by_id.get(pid)
+        if p and Path(p["folder"]).exists():
+            members.append(p)
+        else:
+            skipped.append(pid)
+    if not members:
+        raise HTTPException(status_code=400, detail="복원할 수 있는 프로젝트가 없음")
+    res = _open_projects_in_one_window(members, "작업 복원")
+    res["skipped"] = skipped
+    return res
 
 
 @app.post("/api/categories")

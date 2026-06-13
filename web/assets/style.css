@@ -1280,3 +1280,5 @@ body.edit-mode .group-open { opacity: .4; pointer-events: none; }
 .grp-check-name { color: var(--text); flex: 1; }
 #grp-search { margin-bottom: 6px; }
 #grp-selected-hint { margin-top: 6px; color: var(--accent-dim); }
+.grp-check:has(input:disabled) { opacity: .5; }
+.grp-check input:disabled { cursor: default; }
