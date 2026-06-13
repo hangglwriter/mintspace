@@ -125,6 +125,7 @@ def require_token(x_token: Optional[str]) -> None:
 class ProjectRef(BaseModel):
     folder: str
     project_id: Optional[str] = None
+    new_window: bool = False  # True = 새 wt 창(새 그룹), False = 최근 창에 탭
 
 
 class LogEntry(BaseModel):
@@ -273,6 +274,20 @@ def open_folder(body: ProjectRef, x_token: Optional[str] = Header(default=None))
     return {"ok": True, "opened": str(folder)}
 
 
+def _allow_foreground() -> None:
+    """다음에 띄울 자식 프로세스(wt)가 자기 창을 포그라운드로 올릴 수 있게 허용.
+
+    pythonw(콘솔 없는 백그라운드)에서 Popen 하면 Windows 의 foreground lock 때문에
+    wt 가 기존 mintspace 창에 탭을 붙여도 앞으로 못 나오고 작업표시줄만 깜빡인다.
+    ASFW_ANY(-1) 로 권한을 풀어주면 깜빡임 없이 올라온다. 실패해도 치명적이지 않음.
+    """
+    try:
+        import ctypes
+        ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
+    except Exception as e:  # noqa: BLE001
+        log.debug("AllowSetForegroundWindow 실패(무시): %s", e)
+
+
 @app.post("/api/launch-terminal")
 def launch_terminal(body: ProjectRef, x_token: Optional[str] = Header(default=None)):
     """Windows Terminal 새 탭 또는 PowerShell 새 창에서 cldp 실행.
@@ -296,16 +311,25 @@ def launch_terminal(body: ProjectRef, x_token: Optional[str] = Header(default=No
     # 시도 1: Windows Terminal + pwsh
     if WT and "pwsh" in PWSH.lower():
         try:
+            # 창 타겟: 새 창(새 그룹) vs 가장 최근 wt 창에 탭(-w 0).
+            #   new_window=True  → -w new  : 새 창 생성 → 이게 "최근 창"이 됨
+            #   new_window=False → -w 0    : 방금/마지막으로 쓰던 창에 탭으로 붙음
+            # 워크플로: Shift+클릭으로 새 창 한 번 열고, 이후 클릭들은 그 창에 탭.
+            win = "new" if body.new_window else "0"
             args = [
-                WT, "-w", "new", "new-tab",
+                WT, "-w", win, "new-tab",
                 "--title", title,
                 "-d", folder_str,
                 PWSH, "-NoExit", "-Command", "cldp",
             ]
             log.info("터미널 시도(wt): %s", " ".join(args))
+            # pythonw(백그라운드)는 다른 창을 앞으로 못 끌어옴(작업표시줄만 깜빡).
+            # Popen 직전 자식에게 포그라운드 권한을 넘겨 깜빡임 없이 올라오게.
+            _allow_foreground()
             subprocess.Popen(args)
-            append_log(f"💬 [{title}] cldp 시작 (wt)")
-            return {"ok": True, "via": "wt", "folder": folder_str}
+            append_log(f"💬 [{title}] cldp 시작 (wt, {'새창' if body.new_window else '탭'})")
+            return {"ok": True, "via": "wt", "folder": folder_str,
+                    "window": "new" if body.new_window else "tab"}
         except Exception as e:
             errors.append(f"wt 실패: {e}")
             log.error("wt 실행 실패: %s", e)

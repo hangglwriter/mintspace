@@ -205,7 +205,7 @@ function renderCard(p, cat) {
     <div class="card-path" title="${p.folder}">${p.folder}</div>
     <div class="card-actions">
       <button class="card-btn" data-action="folder" title="파일 탐색기 열기">📂 폴더</button>
-      <button class="card-btn primary" data-action="terminal" title="cldp 실행">💬 cldp</button>
+      <button class="card-btn primary" data-action="terminal" title="cldp 실행 — 클릭: 최근 창에 탭 / Shift+클릭: 새 창">💬 cldp</button>
       ${p.url ? `<button class="card-btn" data-action="url" title="사이트 열기">🌐 사이트</button>` : ""}
     </div>
   `;
@@ -253,8 +253,10 @@ function renderCard(p, cat) {
         await api("/api/open-folder", { method: "POST", body: JSON.stringify({ folder: p.folder, project_id: p.id }) });
         toast(`📂 ${p.name} 열림`);
       } else if (action === "terminal") {
-        const r = await api("/api/launch-terminal", { method: "POST", body: JSON.stringify({ folder: p.folder, project_id: p.id }) });
-        toast(`💬 ${p.name} cldp 시작 (${r.via})`);
+        // Shift+클릭 = 새 창(새 그룹), 그냥 클릭 = 최근 창에 탭
+        const newWindow = e.shiftKey;
+        const r = await api("/api/launch-terminal", { method: "POST", body: JSON.stringify({ folder: p.folder, project_id: p.id, new_window: newWindow }) });
+        toast(`💬 ${p.name} cldp ${r.window === "new" ? "새 창" : "탭"}으로 열림`);
       }
     } catch (err) { toast("실패: " + err.message, "err"); }
     finally { btn.disabled = false; }
