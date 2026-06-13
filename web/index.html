@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026061301" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026061302" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -28,6 +28,10 @@
         <a href="#bookmarks" class="nav-item nav-bookmarks">
           <span class="nav-label">바로가기</span>
           <span class="nav-count" id="nav-bookmark-count"></span>
+        </a>
+        <a href="#tab-groups" class="nav-item nav-groups">
+          <span class="nav-label">🗂 탭 그룹</span>
+          <span class="nav-count" id="nav-group-count"></span>
         </a>
         <div class="nav-divider"></div>
         <div class="nav-section-label">카테고리</div>
@@ -104,6 +108,16 @@
           <button class="section-action" data-add-rowbreak="__fav__" title="즐겨찾기 항목을 줄로 나누기 (줄바꿈 라인 추가, 드래그로 위치 이동)">+ 줄바꿈</button>
         </div>
         <div class="shortcuts" id="favorites-grid" data-sc-cat="__fav__"></div>
+      </section>
+
+      <!-- 탭 그룹 (자주 같이 여는 프로젝트를 새 창 하나에 cldp 탭으로 한 번에) -->
+      <section id="tab-groups" class="section groups-section hidden">
+        <div class="section-header">
+          <h2><span class="section-icon">🗂</span> 탭 그룹</h2>
+          <span class="section-sub">자주 같이 여는 프로젝트를 묶어 → 버튼 하나로 새 창 하나에 cldp 탭을 좌르륵</span>
+          <button id="add-group-btn" class="section-action" title="새 탭 그룹 만들기">+ 탭 그룹</button>
+        </div>
+        <div class="groups-grid" id="groups-grid"></div>
       </section>
 
       <!-- 카테고리별 프로젝트 -->
@@ -252,6 +266,28 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026061301"></script>
+  <div id="group-modal" class="modal hidden">
+    <div class="modal-inner modal-wide">
+      <h3 id="group-modal-title">🗂 새 탭 그룹</h3>
+      <div class="grp-row">
+        <div class="grp-field-icon">
+          <label>아이콘</label>
+          <input id="grp-icon" type="text" placeholder="🗂" maxlength="3" />
+        </div>
+        <div class="grp-field-name">
+          <label>그룹 이름</label>
+          <input id="grp-name" type="text" placeholder="예: 유튜브 작업" />
+        </div>
+      </div>
+      <label>이 그룹에 넣을 프로젝트 <span class="hint-tiny">(체크해서 넣고 빼기 · 여러 개)</span></label>
+      <div id="grp-projects" class="grp-checklist"></div>
+      <div class="modal-actions">
+        <button class="link-btn" onclick="document.getElementById('group-modal').classList.add('hidden')">취소</button>
+        <button id="grp-save" class="primary-btn">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js?v=2026061302"></script>
 </body>
 </html>

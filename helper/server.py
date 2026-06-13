@@ -175,10 +175,25 @@ class ProjectPatch(BaseModel):
     starred: Optional[bool] = None
 
 
+class GroupIn(BaseModel):
+    id: Optional[str] = None
+    name: str
+    icon: Optional[str] = None
+    project_ids: list[str] = []
+
+
+class GroupPatch(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+    project_ids: Optional[list[str]] = None
+
+
 def load_projects_data() -> dict:
     if not PROJECTS_FILE.exists():
-        return {"categories": [], "projects": [], "links": []}
-    return json.loads(PROJECTS_FILE.read_text(encoding="utf-8"))
+        return {"categories": [], "projects": [], "links": [], "groups": []}
+    data = json.loads(PROJECTS_FILE.read_text(encoding="utf-8"))
+    data.setdefault("groups", [])  # 기존 파일 호환 (탭 그룹은 나중에 추가됨)
+    return data
 
 
 def save_projects_data(data: dict) -> None:
@@ -346,6 +361,121 @@ def launch_terminal(body: ProjectRef, x_token: Optional[str] = Header(default=No
         log.error("pwsh 실행 실패: %s\n%s", e, traceback.format_exc())
 
     raise HTTPException(status_code=500, detail="; ".join(errors))
+
+
+# ─────────────────────────── 탭 그룹 ───────────────────────────
+# 자주 같이 여는 프로젝트들을 묶어 새 창 하나에 cldp 탭으로 한 번에 펼침.
+
+def _cldp_tab(folder_str: str, title: str) -> list:
+    """wt new-tab 서브커맨드 한 조각 (cldp 실행)."""
+    return ["new-tab", "--title", title, "-d", folder_str,
+            PWSH, "-NoExit", "-Command", "cldp"]
+
+
+@app.get("/api/groups")
+def list_groups(x_token: Optional[str] = Header(default=None)):
+    require_token(x_token)
+    return load_projects_data().get("groups", [])
+
+
+@app.post("/api/groups")
+def add_group(body: GroupIn, x_token: Optional[str] = Header(default=None)):
+    require_token(x_token)
+    data = load_projects_data()
+    data.setdefault("groups", [])
+    gid = body.id or slugify(body.name) or secrets.token_hex(3)
+    if any(g["id"] == gid for g in data["groups"]):
+        gid = gid + "-" + secrets.token_hex(2)
+    group = {
+        "id": gid,
+        "name": body.name,
+        "icon": body.icon or "🗂",
+        "project_ids": body.project_ids or [],
+    }
+    data["groups"].append(group)
+    save_projects_data(data)
+    append_log(f"➕ 탭 그룹 추가: {group['name']}")
+    return group
+
+
+@app.patch("/api/groups/{group_id}")
+def patch_group(group_id: str, body: GroupPatch, x_token: Optional[str] = Header(default=None)):
+    require_token(x_token)
+    data = load_projects_data()
+    g = next((g for g in data.get("groups", []) if g["id"] == group_id), None)
+    if not g:
+        raise HTTPException(status_code=404, detail="그룹 없음")
+    if body.name is not None: g["name"] = body.name
+    if body.icon is not None: g["icon"] = body.icon
+    if body.project_ids is not None: g["project_ids"] = body.project_ids
+    save_projects_data(data)
+    return g
+
+
+@app.delete("/api/groups/{group_id}")
+def delete_group(group_id: str, x_token: Optional[str] = Header(default=None)):
+    require_token(x_token)
+    data = load_projects_data()
+    before = len(data.get("groups", []))
+    data["groups"] = [g for g in data.get("groups", []) if g["id"] != group_id]
+    if len(data["groups"]) == before:
+        raise HTTPException(status_code=404, detail="그룹 없음")
+    save_projects_data(data)
+    return {"ok": True}
+
+
+@app.post("/api/groups/{group_id}/launch")
+def launch_group(group_id: str, x_token: Optional[str] = Header(default=None)):
+    """그룹의 모든 프로젝트 cldp 를 새 창 하나에 탭으로 한꺼번에 연다."""
+    require_token(x_token)
+    data = load_projects_data()
+    g = next((g for g in data.get("groups", []) if g["id"] == group_id), None)
+    if not g:
+        raise HTTPException(status_code=404, detail="그룹 없음")
+
+    by_id = {p["id"]: p for p in data.get("projects", [])}
+    members, skipped = [], []
+    for pid in g.get("project_ids", []):
+        p = by_id.get(pid)
+        if p and Path(p["folder"]).exists():
+            members.append(p)
+        else:
+            skipped.append(pid)
+    if not members:
+        raise HTTPException(status_code=400, detail="열 수 있는 프로젝트가 없음 (폴더 없음/멤버 없음)")
+
+    # 시도 1: Windows Terminal — 새 창 1개 + new-tab 들을 ';' 로 이어붙임
+    if WT and "pwsh" in PWSH.lower():
+        try:
+            args = [WT, "-w", "new"]
+            for i, p in enumerate(members):
+                if i > 0:
+                    args.append(";")  # wt 서브커맨드 구분자 → 같은 창에 다음 탭
+                args += _cldp_tab(str(Path(p["folder"])), p.get("id") or Path(p["folder"]).name)
+            log.info("그룹 터미널(wt): %s", " ".join(args))
+            _allow_foreground()
+            subprocess.Popen(args)
+            append_log(f"🗂 [{g['name']}] 그룹 cldp {len(members)}개 탭 시작")
+            return {"ok": True, "via": "wt", "opened": len(members), "skipped": skipped}
+        except Exception as e:
+            log.error("그룹 wt 실행 실패: %s\n%s", e, traceback.format_exc())
+            # 폴백으로 진행
+
+    # 시도 2: WT 없음 → 각각 새 콘솔로 (탭은 못 묶지만 일단 열기)
+    opened = 0
+    for p in members:
+        try:
+            subprocess.Popen(
+                [PWSH, "-NoExit", "-WorkingDirectory", str(Path(p["folder"])), "-Command", "cldp"],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+            )
+            opened += 1
+        except Exception as e:
+            log.error("그룹 pwsh 실행 실패(%s): %s", p.get("id"), e)
+    if not opened:
+        raise HTTPException(status_code=500, detail="그룹 터미널 실행 실패")
+    append_log(f"🗂 [{g['name']}] 그룹 cldp {opened}개 (개별 창)")
+    return {"ok": True, "via": "pwsh", "opened": opened, "skipped": skipped}
 
 
 @app.post("/api/categories")

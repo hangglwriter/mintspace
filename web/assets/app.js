@@ -11,7 +11,7 @@ const HELPER_DEFAULT = ["localhost", "127.0.0.1"].includes(location.hostname)
 const STATE = {
   helperBase: localStorage.getItem("mintspace_helper") || HELPER_DEFAULT,
   token: localStorage.getItem("mintspace_token") || "",
-  data: { categories: [], projects: [], links: [] },
+  data: { categories: [], projects: [], links: [], groups: [] },
   bookmarks: [],
   connected: false,
   editingCatId: null,  // 카테고리 편집 모달용
@@ -461,6 +461,117 @@ function renderFavorites() {
       || { id: b.category, color: "#888", icon: "📁", name: b.category || "기타" };
     grid.appendChild(renderChip(b, cat));
   }
+}
+
+// ─────────────────────────── 탭 그룹 ───────────────────────────
+let editingGroupId = null;
+
+function renderGroups() {
+  const sec = $("#tab-groups");
+  const grid = $("#groups-grid");
+  if (!sec || !grid) return;
+  const groups = STATE.data.groups || [];
+  const navCount = $("#nav-group-count");
+  if (navCount) navCount.textContent = groups.length || "";
+  if (groups.length === 0) { sec.classList.add("hidden"); grid.innerHTML = ""; return; }
+  sec.classList.remove("hidden");
+  grid.innerHTML = "";
+  for (const g of groups) grid.appendChild(renderGroupCard(g));
+}
+
+function renderGroupCard(g) {
+  const projById = Object.fromEntries((STATE.data.projects || []).map(p => [p.id, p]));
+  const members = (g.project_ids || []).map(id => projById[id]).filter(Boolean);
+  const el = document.createElement("div");
+  el.className = "group-card";
+  el.dataset.gid = g.id;
+  const chips = members.length
+    ? members.map(p => `<span class="group-chip">${p.name}</span>`).join("")
+    : `<span class="group-empty">아직 프로젝트 없음 — ✏ 로 넣기</span>`;
+  el.innerHTML = `
+    <button class="group-del" data-grp-del title="그룹 삭제">✕</button>
+    <div class="group-head">
+      <span class="group-icon">${g.icon || "🗂"}</span>
+      <span class="group-name">${g.name}</span>
+      <button class="group-edit" data-grp-edit title="이름 · 멤버 편집">✏</button>
+    </div>
+    <div class="group-members">${chips}</div>
+    <button class="group-open" data-grp-open ${members.length ? "" : "disabled"}>▶ 전체 열기${members.length ? ` (${members.length})` : ""}</button>
+  `;
+  el.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-grp-edit]")) { openGroupModal(g.id); return; }
+    if (e.target.closest("[data-grp-del]")) {
+      if (!confirm(`탭 그룹 "${g.name}" 삭제? (프로젝트 자체는 그대로)`)) return;
+      try { await api(`/api/groups/${g.id}`, { method: "DELETE" }); toast("그룹 삭제됨"); await loadProjects(); }
+      catch (err) { toast("실패: " + err.message, "err"); }
+      return;
+    }
+    if (STATE.editMode) return;
+    if (e.target.closest("[data-grp-open]")) {
+      if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
+      const btn = e.target.closest("[data-grp-open]");
+      btn.disabled = true;
+      try {
+        const r = await api(`/api/groups/${g.id}/launch`, { method: "POST" });
+        const skip = r.skipped && r.skipped.length ? ` (${r.skipped.length}개 건너뜀)` : "";
+        toast(`🗂 ${g.name} — cldp ${r.opened}개 탭 열림${skip}`);
+      } catch (err) { toast("실패: " + err.message, "err"); }
+      finally { btn.disabled = false; }
+    }
+  });
+  return el;
+}
+
+function openGroupModal(groupId) {
+  editingGroupId = groupId || null;
+  const g = groupId ? (STATE.data.groups || []).find(x => x.id === groupId) : null;
+  $("#group-modal-title").textContent = g ? "🗂 탭 그룹 편집" : "🗂 새 탭 그룹";
+  $("#grp-name").value = g ? g.name : "";
+  $("#grp-icon").value = g ? (g.icon || "🗂") : "🗂";
+  const selected = new Set(g ? (g.project_ids || []) : []);
+  const box = $("#grp-projects");
+  const projects = STATE.data.projects || [];
+  box.innerHTML = projects.length
+    ? projects.map(p => {
+        const cat = STATE.data.categories.find(c => c.id === p.category) || {};
+        return `<label class="grp-check ${selected.has(p.id) ? "on" : ""}">
+          <input type="checkbox" value="${p.id}" ${selected.has(p.id) ? "checked" : ""}/>
+          <span class="grp-check-cat">${cat.icon || "📁"}</span>
+          <span class="grp-check-name">${p.name}</span>
+        </label>`;
+      }).join("")
+    : `<p class="hint-tiny">먼저 프로젝트를 추가해줘.</p>`;
+  box.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => cb.closest(".grp-check").classList.toggle("on", cb.checked));
+  });
+  $("#group-modal").classList.remove("hidden");
+  $("#grp-name").focus();
+}
+
+function setupGroupModal() {
+  const addBtn = $("#add-group-btn");
+  if (addBtn) addBtn.addEventListener("click", () => openGroupModal(null));
+  const save = async () => {
+    const name = $("#grp-name").value.trim();
+    if (!name) return toast("그룹 이름을 입력해줘", "err");
+    const icon = $("#grp-icon").value.trim() || "🗂";
+    const ids = $$("#grp-projects input[type=checkbox]:checked").map(cb => cb.value);
+    try {
+      if (editingGroupId) {
+        await api(`/api/groups/${editingGroupId}`, { method: "PATCH", body: JSON.stringify({ name, icon, project_ids: ids }) });
+        toast("그룹 저장됨");
+      } else {
+        await api("/api/groups", { method: "POST", body: JSON.stringify({ name, icon, project_ids: ids }) });
+        toast("그룹 추가됨");
+      }
+      $("#group-modal").classList.add("hidden");
+      await loadProjects();
+    } catch (err) { toast("실패: " + err.message, "err"); }
+  };
+  const saveBtn = $("#grp-save");
+  if (saveBtn) saveBtn.addEventListener("click", save);
+  const nameInput = $("#grp-name");
+  if (nameInput) nameInput.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
 }
 
 function fillBookmarkCatSelect(selectedId) {
@@ -916,6 +1027,7 @@ async function loadProjects() {
   fillBookmarkCatSelect();
   renderCategories();
   renderFavorites();
+  renderGroups();
   loadStarSuggestions();  // 비동기, 별도 fetch (UI 막지 않음)
 }
 
@@ -1251,6 +1363,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupStarSuggest();
   setupCategoryModal();
   setupProjectModal();
+  setupGroupModal();
   setupDragAndDrop();
   setupChipDrag();
   setupSidebarDropZones();

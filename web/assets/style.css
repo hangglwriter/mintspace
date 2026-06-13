@@ -1206,3 +1206,71 @@ body.edit-mode .card-actions {
   .sidebar.open { transform: translateX(0); }
   .main { padding: 0 16px 60px; }
 }
+
+/* ============== 탭 그룹 ============== */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.group-card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 12px 10px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.group-head { display: flex; align-items: center; gap: 7px; }
+.group-icon { font-size: 18px; }
+.group-name {
+  font-weight: 600; font-size: 14px; color: var(--text); flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.group-edit {
+  border: none; background: transparent; cursor: pointer; font-size: 13px;
+  opacity: 0; transition: opacity .12s; color: var(--text-faint);
+}
+.group-card:hover .group-edit { opacity: 1; }
+.group-members { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; }
+.group-chip {
+  font-size: 11px; background: var(--bg-soft); color: var(--text-dim);
+  border-radius: var(--r-sm); padding: 2px 7px; white-space: nowrap;
+}
+.group-empty { font-size: 11px; color: var(--text-faint); }
+.group-open {
+  margin-top: 2px; border: 1px solid var(--accent-bg); background: var(--accent-bg);
+  color: var(--accent-dim); border-radius: var(--r-sm); padding: 6px 10px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background .12s;
+}
+.group-open:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.group-open:disabled { opacity: .45; cursor: default; }
+.group-del {
+  position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+  border-radius: 50%; border: none; background: var(--danger); color: #fff;
+  font-size: 11px; cursor: pointer; display: none; line-height: 1;
+  align-items: center; justify-content: center;
+}
+body.edit-mode .group-del { display: flex; }
+body.edit-mode .group-open { opacity: .4; pointer-events: none; }
+
+/* 그룹 모달 */
+.grp-row { display: flex; gap: 10px; }
+.grp-field-icon { width: 64px; }
+.grp-field-name { flex: 1; }
+.grp-checklist {
+  max-height: 280px; overflow-y: auto; border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.grp-check {
+  display: flex; align-items: center; gap: 7px; padding: 6px 8px;
+  border-radius: var(--r-sm); cursor: pointer; font-size: 13px;
+}
+.grp-check:hover { background: var(--bg-soft); }
+.grp-check.on { background: var(--accent-bg); }
+.grp-check input { margin: 0; }
+.grp-check-cat { font-size: 14px; }
+.grp-check-name { color: var(--text); }
