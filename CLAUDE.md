@@ -10,11 +10,11 @@
   - ⚠ **pythonw 로 띄우면 `sys.stdout` 이 `None`** → uvicorn 컬러 로깅의 `sys.stdout.isatty()` 에서 죽음(2026-05-30 발견). server.py 상단에서 stdout/stderr None 이면 `os.devnull` 로 채우는 가드로 해결. 이 가드 지우면 자동시작이 silent fail.
   - ⚠ 헬퍼 재시작 시 **절대 포트 강제 종료(`Stop-Process` on 5500) 금지**: 헬퍼가 launch-terminal 로 띄운 cldp 자식 터미널까지 연쇄 사망. 옛 `start-helper.ps1` 이 이 짓을 해서 제거함(2026-05-29). 안전 런처는 "이미 떠 있으면 재기동 안 함" 방식만. (단 cldp 자식이 0개면 그 python 만 단독 종료해도 안전.)
 - **데이터** (`data/`) = `.gitignore`. 로컬 전용 (NAS 경로 등 민감).
-  - `projects.json` (카테고리 + 큰 카드들 = 클로드 코드로 작업하는 프로젝트)
+  - `projects.json` (카테고리 + 큰 카드들 = 클로드 코드로 작업하는 프로젝트 + `groups` 탭 그룹)
   - `bookmarks.json` (미니카드 = 폴더/파일/링크 바로가기)
   - `token.txt`, `logs/YYYY-MM-DD.md`
 
-## 현재 상태 (2026-05-29)
+## 현재 상태 (2026-06-13)
 
 ### 완료된 큰 기능
 - [x] **바탕화면 자동 수집** - `helper/desktop_scan.py` 에서 PowerShell COM(`WScript.Shell`) 으로 `.lnk` 파싱 + 실제 폴더 99개 스캔 → 경로 기반 자동 분류 → bookmarks 일괄 추가 (프로젝트와 중복되는 폴더 자동 제외)
@@ -31,9 +31,10 @@
 - [x] **즐겨찾기에 직접 추가 + 줄바꿈** (2026-06-03) - 즐겨찾기 섹션 헤더에 [+ 바로가기] [+ 줄바꿈] 추가. 가상 카테고리 `__fav__`(`FAV_CAT`) 사용 → 실제 카테고리 목록에 없으므로 메인 영역엔 안 뜨고 즐겨찾기에만 렌더(카테고리 무관 "자주 쓰는 링크" 모음). 버튼은 기존 `data-add-bm` / `data-add-rowbreak` 위임 재사용(별도 JS 배선 없음). 바로가기/카드편집 모달 카테고리 드롭다운 맨 위에 "⭐ 즐겨찾기" 옵션(미니카드만, 프로젝트는 서버가 실제 카테고리만 허용). `renderFavorites` = ①`__fav__` 전용(줄바꿈 포함, 순서 유지) ②별표 프로젝트 ③다른 카테고리 별표 미니카드(중복 방지 위해 `__fav__` 제외). favorites-grid 에 `data-sc-cat=__fav__` → 드래그로 즐겨찾기 ↔ 카테고리 끌어 옮기기 + 즐겨찾기 내부 순서변경. 칩 순서 수집을 `#favorites-grid` 포함으로 확장 + Set 중복제거(별표 항목은 자기 카테고리+즐겨찾기 양쪽에 같은 data-bid 로 존재). 서버 변경 없음. 캐시 `?v=2026060301`
 - [x] **미니카드 줄바꿈 라인** (2026-05-29) - 카테고리 헤더 [+ 줄바꿈] → `type=rowbreak` 특수 bookmark 추가. CSS `grid-column:1/-1` 로 한 줄 전체 차지 → 뒤 카드 다음 줄로 밀어 줄 단위 그룹화. 드래그로 위치 이동(칩 드래그 시스템에 `.rowbreak` 포함), 편집 모드 ✕로 제거. 순서 수집은 `#categories-area .shortcuts [data-bid]` (즐겨찾기 제외 + rowbreak 포함). 검색/카운트에서 제외. `POST /api/bookmarks-rowbreak`
 - [x] **cldp 터미널 탭/새창 분기** (2026-06-13) - 카드 `💬 cldp` 버튼: **그냥 클릭 = `-w 0`**(가장 최근 wt 창에 탭으로) / **Shift+클릭 = `-w new`**(새 창 = 새 그룹). 프론트는 `e.shiftKey` → `new_window` 로 전달. 옛 `-w new` 매번 새 창에서 변경. pythonw 백그라운드는 foreground lock 때문에 탭 붙여도 작업표시줄만 깜빡임 → Popen 직전 `AllowSetForegroundWindow(-1)`(`_allow_foreground()`) 가드로 앞으로 올림. **동기**: 수동으로 탭을 드래그-합치다 창 전체가 종료되던 사고 방지 (처음부터 의도한 창에 탭으로 열어 합칠 일 자체를 없앰)
-- [x] **탭 그룹 (워크스페이스)** (2026-06-13) - 자주 같이 여는 프로젝트를 묶어 **버튼 하나로 새 창 하나에 cldp 탭 좌르륵**. 직접 생성/편집/삭제, 멤버는 모달 체크박스로 넣다 뺐다, 여러 그룹 가능. `[▶ 전체 열기]` → `wt -w new` + 각 멤버 `new-tab` 을 `;`(wt 서브커맨드 구분자)로 이어붙여 한 창에 탭. 멤버 폴더 없으면 skip. WT 없으면 개별 새 콘솔 폴백. groups 는 `projects.json` 에 저장(로컬 전용, gitignore). 사이드바 nav `🗂 탭 그룹` + `#tab-groups` 섹션 + `#group-modal`. JS `renderGroups`/`renderGroupCard`/`openGroupModal`/`setupGroupModal`, 편집모드 연동(✕ 배지 + 열기 비활성)
+- [x] **탭 그룹 (워크스페이스)** (2026-06-13) - 자주 같이 여는 프로젝트를 묶어 **버튼 하나로 새 창 하나에 cldp 탭 좌르륵**. 직접 생성/편집/삭제, 멤버는 모달 체크박스로 넣다 뺐다, 여러 그룹 가능. `[▶ 전체 열기]` → `wt -w new` + 각 멤버 `new-tab` 을 `;`(wt 서브커맨드 구분자)로 이어붙여 한 창에 탭. 멤버 폴더 없으면 skip. WT 없으면 개별 새 콘솔 폴백. groups 는 `projects.json` 에 저장(로컬 전용, gitignore). 사이드바 nav `🗂 탭 그룹` + `#tab-groups` 섹션 + `#group-modal`. JS `renderGroups`/`renderGroupCard`/`openGroupModal`/`setupGroupModal`, 편집모드 연동(✕ 배지 + 열기 비활성). 모달에 **프로젝트 이름 검색창**(`grp-search`, 체크 상태 유지하며 필터) + "N개 선택됨" 힌트. ⚠ 모달 공통 `input{width:100%}` 이 체크박스까지 늘려 깨지므로 `.grp-check input[type=checkbox]` 16px 고정 필수
 
 ### 다음 할 것
+- [ ] 탭 그룹: 카드에서 멤버 칩 X로 바로 빼기 + 그룹 순서 드래그 (지금은 편집 모달 체크박스로만)
 - [ ] 바탕화면 스캔에 파일 포함 옵션 (지금은 폴더만 일괄 수집; 파일은 모달로 개별 추가)
 - [ ] 즐겨찾기 섹션 카드도 드래그로 카테고리/순서 변경
 - [ ] 카드 노트(메모) 편집 UI - 서버 PATCH note 는 이미 지원, 모달 UI 만 추가
