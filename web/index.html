@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026061302" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026061303" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -280,7 +280,9 @@
         </div>
       </div>
       <label>이 그룹에 넣을 프로젝트 <span class="hint-tiny">(체크해서 넣고 빼기 · 여러 개)</span></label>
+      <input id="grp-search" type="text" placeholder="🔍 프로젝트 이름 검색..." autocomplete="off" />
       <div id="grp-projects" class="grp-checklist"></div>
+      <p class="hint-tiny" id="grp-selected-hint"></p>
       <div class="modal-actions">
         <button class="link-btn" onclick="document.getElementById('group-modal').classList.add('hidden')">취소</button>
         <button id="grp-save" class="primary-btn">저장</button>
@@ -288,6 +290,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026061302"></script>
+  <script src="/assets/app.js?v=2026061303"></script>
 </body>
 </html>

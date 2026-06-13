@@ -1271,6 +1271,12 @@ body.edit-mode .group-open { opacity: .4; pointer-events: none; }
 }
 .grp-check:hover { background: var(--bg-soft); }
 .grp-check.on { background: var(--accent-bg); }
-.grp-check input { margin: 0; }
+/* 모달 공통 input(width:100%)이 체크박스까지 늘려버리는 것 차단 */
+.grp-check input[type="checkbox"] {
+  flex: none; margin: 0; padding: 0;
+  width: 16px; height: 16px; cursor: pointer;
+}
 .grp-check-cat { font-size: 14px; }
-.grp-check-name { color: var(--text); }
+.grp-check-name { color: var(--text); flex: 1; }
+#grp-search { margin-bottom: 6px; }
+#grp-selected-hint { margin-top: 6px; color: var(--accent-dim); }

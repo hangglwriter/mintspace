@@ -541,11 +541,35 @@ function openGroupModal(groupId) {
         </label>`;
       }).join("")
     : `<p class="hint-tiny">먼저 프로젝트를 추가해줘.</p>`;
+  const hint = $("#grp-selected-hint");
+  const updateCount = () => {
+    const n = box.querySelectorAll("input[type=checkbox]:checked").length;
+    if (hint) hint.textContent = n ? `✓ ${n}개 선택됨` : "아직 선택한 프로젝트 없음";
+  };
   box.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    cb.addEventListener("change", () => cb.closest(".grp-check").classList.toggle("on", cb.checked));
+    cb.addEventListener("change", () => {
+      cb.closest(".grp-check").classList.toggle("on", cb.checked);
+      updateCount();
+    });
   });
+  updateCount();
+
+  // 이름 검색 필터 (체크 상태는 유지 — 검색 → 체크 → 다시 검색 반복 가능)
+  const search = $("#grp-search");
+  if (search) {
+    search.value = "";
+    search.oninput = () => {
+      const q = search.value.trim().toLowerCase();
+      box.querySelectorAll(".grp-check").forEach(lb => {
+        const nm = (lb.querySelector(".grp-check-name")?.textContent || "").toLowerCase();
+        lb.style.display = (!q || nm.includes(q)) ? "" : "none";
+      });
+    };
+  }
+
   $("#group-modal").classList.remove("hidden");
-  $("#grp-name").focus();
+  // 새 그룹은 이름부터, 편집(이름 있음)은 검색창부터 포커스
+  (groupId && search ? search : $("#grp-name")).focus();
 }
 
 function setupGroupModal() {
