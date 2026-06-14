@@ -605,7 +605,7 @@ async function openRestoreModal() {
   box.innerHTML = `<p class="hint-tiny">불러오는 중...</p>`;
   $("#restore-modal").classList.remove("hidden");
   let data;
-  try { data = await api("/api/restore-candidates?window=360"); }
+  try { data = await api("/api/restore-candidates?window=2880"); }
   catch (err) { box.innerHTML = `<p class="hint-tiny">실패: ${err.message}</p>`; return; }
   const list = data.candidates || [];
   if (!list.length) {

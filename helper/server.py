@@ -496,10 +496,12 @@ def launch_group(group_id: str, x_token: Optional[str] = Header(default=None)):
 _LAUNCH_RE = re.compile(r"^- (\d{2}):(\d{2})\s+💬 \[(.+?)\] cldp")
 
 
-def _recent_launch_pids(window_min: int = 360) -> list:
-    """최근 2일 로그에서 마지막 cldp launch 세션의 project_id 목록 (최근 연 순, 중복 제거)."""
+def _recent_launch_pids(window_min: int = 2880) -> list:
+    """최근 로그에서 마지막 cldp launch 시각부터 window_min 분 안의 project_id 목록 (최근 연 순, 중복 제거).
+    기본 2880분 = 48시간(2일). 자정 경계로 날짜가 여러 개 걸리고 작업 안 한 날은 파일이 없으므로
+    넉넉히 최근 8개 로그 파일을 읽은 뒤 cutoff 로 필터링한다."""
     entries = []  # (datetime, project_id)
-    for lf in sorted(LOG_DIR.glob("*.md"), reverse=True)[:2]:
+    for lf in sorted(LOG_DIR.glob("*.md"), reverse=True)[:8]:
         try:
             d = dt.date.fromisoformat(lf.stem)
         except ValueError:
@@ -525,7 +527,7 @@ def _recent_launch_pids(window_min: int = 360) -> list:
 
 
 @app.get("/api/restore-candidates")
-def restore_candidates(window: int = 360, x_token: Optional[str] = Header(default=None)):
+def restore_candidates(window: int = 2880, x_token: Optional[str] = Header(default=None)):
     """마지막 작업 세션에 연 프로젝트 후보 목록 (이름/폴더/존재여부 포함)."""
     require_token(x_token)
     data = load_projects_data()
