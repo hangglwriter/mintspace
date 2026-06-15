@@ -608,7 +608,9 @@ async function openRestoreModal() {
   try { data = await api("/api/restore-candidates?window=2880"); }
   catch (err) { box.innerHTML = `<p class="hint-tiny">실패: ${err.message}</p>`; return; }
   const list = data.candidates || [];
+  const toolbar = $("#restore-toolbar");
   if (!list.length) {
+    if (toolbar) toolbar.classList.add("hidden");
     box.innerHTML = `<p class="hint-tiny">최근 cldp로 연 터미널 기록이 없어. (카드의 💬 cldp로 한 번 열면 기록돼서 다음부터 복원돼)</p>`;
     return;
   }
@@ -619,13 +621,43 @@ async function openRestoreModal() {
       <span class="grp-check-name">${c.name}${c.exists ? "" : " (폴더 없음)"}</span>
     </label>`).join("");
   box.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    cb.addEventListener("change", () => cb.closest(".grp-check").classList.toggle("on", cb.checked));
+    cb.addEventListener("change", () => {
+      cb.closest(".grp-check").classList.toggle("on", cb.checked);
+      updateRestoreHint();
+    });
   });
+  if (toolbar) toolbar.classList.remove("hidden");
+  updateRestoreHint();
+}
+
+// 전체 선택/해제는 폴더가 실제로 있는(disabled 아닌) 항목만 대상
+function restoreSelectableBoxes() {
+  return $$("#restore-list input[type=checkbox]:not(:disabled)");
+}
+
+function updateRestoreHint() {
+  const hint = $("#restore-selected-hint");
+  if (!hint) return;
+  const all = restoreSelectableBoxes();
+  const checked = all.filter(cb => cb.checked).length;
+  hint.textContent = `${checked} / ${all.length}개 선택됨`;
+}
+
+function setRestoreAll(checked) {
+  restoreSelectableBoxes().forEach(cb => {
+    cb.checked = checked;
+    cb.closest(".grp-check").classList.toggle("on", checked);
+  });
+  updateRestoreHint();
 }
 
 function setupRestore() {
   const btn = $("#restore-btn");
   if (btn) btn.addEventListener("click", openRestoreModal);
+  const selAll = $("#restore-select-all");
+  if (selAll) selAll.addEventListener("click", () => setRestoreAll(true));
+  const clrAll = $("#restore-clear-all");
+  if (clrAll) clrAll.addEventListener("click", () => setRestoreAll(false));
   const confirmBtn = $("#restore-confirm");
   if (confirmBtn) confirmBtn.addEventListener("click", async () => {
     const ids = $$("#restore-list input[type=checkbox]:checked").map(cb => cb.value);

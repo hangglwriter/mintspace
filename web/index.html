@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026061401" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026061402" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -298,6 +298,11 @@
     <div class="modal-inner modal-wide">
       <h3>🕐 작업 복원</h3>
       <p class="hint-tiny">마지막 작업 세션에 cldp로 연 프로젝트들이야. 체크해서 <strong>새 창 하나에 탭으로</strong> 다시 열어.</p>
+      <div id="restore-toolbar" class="hidden" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <button id="restore-select-all" class="link-btn" type="button">전체 선택</button>
+        <button id="restore-clear-all" class="link-btn" type="button">전체 해제</button>
+        <span class="hint-tiny" id="restore-selected-hint" style="margin-left:auto"></span>
+      </div>
       <div id="restore-list" class="grp-checklist"></div>
       <div class="modal-actions">
         <button class="link-btn" onclick="document.getElementById('restore-modal').classList.add('hidden')">취소</button>
@@ -306,6 +311,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026061401"></script>
+  <script src="/assets/app.js?v=2026061402"></script>
 </body>
 </html>
