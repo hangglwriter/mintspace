@@ -80,6 +80,10 @@
           <span>🕐</span>
           <span class="edit-label">작업 복원</span>
         </button>
+        <button id="folder-restore-btn" class="edit-btn" title="최근 2일(48시간) 안에 연 폴더들을 다시 열기 (탐색기는 각각 새 창)">
+          <span>📂</span>
+          <span class="edit-label">폴더 복원</span>
+        </button>
         <button id="edit-toggle" class="edit-btn" title="편집 모드 - 카드/폴더 삭제용 (ESC로 해제)">
           <span class="edit-icon">✎</span>
           <span class="edit-label">편집</span>
@@ -311,6 +315,23 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026061402"></script>
+  <div id="folder-restore-modal" class="modal hidden">
+    <div class="modal-inner modal-wide">
+      <h3>📂 폴더 복원</h3>
+      <p class="hint-tiny">마지막 세션에 연 폴더들이야. 체크해서 다시 열어. <strong>탐색기는 각각 새 창</strong>으로 떠 (탭으로는 못 묶어).</p>
+      <div id="folder-restore-toolbar" class="hidden" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <button id="folder-restore-select-all" class="link-btn" type="button">전체 선택</button>
+        <button id="folder-restore-clear-all" class="link-btn" type="button">전체 해제</button>
+        <span class="hint-tiny" id="folder-restore-selected-hint" style="margin-left:auto"></span>
+      </div>
+      <div id="folder-restore-list" class="grp-checklist"></div>
+      <div class="modal-actions">
+        <button class="link-btn" onclick="document.getElementById('folder-restore-modal').classList.add('hidden')">취소</button>
+        <button id="folder-restore-confirm" class="primary-btn">선택 복원</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js?v=2026061901"></script>
 </body>
 </html>

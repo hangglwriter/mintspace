@@ -566,6 +566,105 @@ def restore_launch(body: OrderIn, x_token: Optional[str] = Header(default=None))
     return res
 
 
+# ─────────────────────────── 폴더 작업 복원 ───────────────────────────
+# logs/*.md 의 폴더 열기 기록(- HH:MM  📂 [id] 폴더 열림)을 읽어 마지막 세션에
+# 연 폴더(큰 카드 + 미니카드)를 복원. cldp 복원과 판박이지만 실행은 탭이 아니라
+# 각각 새 탐색기 창(explorer 는 탭 제어 API 가 없어 한 창에 못 묶음).
+# id 규칙: "bm-XXX" = 미니카드(bookmark), 그 외 = 프로젝트(큰 카드). open_folder 가
+# project_id 로 그렇게 찍는다(app.js: project=p.id, bookmark="bm-"+b.id).
+
+_FOLDER_RE = re.compile(r"^- (\d{2}):(\d{2})\s+📂 \[(.+?)\] 폴더 열림")
+
+
+def _recent_folder_opens(window_min: int = 2880) -> list:
+    """최근 로그에서 마지막 폴더 열기 시각부터 window_min 분 안의 id 목록 (최근 연 순, 중복 제거).
+    cldp 복원(_recent_launch_pids)과 동일하게 최근 8개 로그 파일을 읽고 cutoff 로 거른다."""
+    entries = []  # (datetime, id)
+    for lf in sorted(LOG_DIR.glob("*.md"), reverse=True)[:8]:
+        try:
+            d = dt.date.fromisoformat(lf.stem)
+        except ValueError:
+            continue
+        for line in lf.read_text(encoding="utf-8").splitlines():
+            m = _FOLDER_RE.match(line)
+            if m:
+                hh, mm, fid = int(m.group(1)), int(m.group(2)), m.group(3)
+                entries.append((dt.datetime.combine(d, dt.time(hh, mm)), fid))
+    if not entries:
+        return []
+    entries.sort(key=lambda e: e[0])
+    cutoff = entries[-1][0] - dt.timedelta(minutes=window_min)
+    seen, ordered = set(), []
+    for t, fid in reversed(entries):
+        if t < cutoff:
+            break
+        if fid not in seen:
+            seen.add(fid)
+            ordered.append(fid)
+    return ordered
+
+
+def _resolve_folder_id(fid: str, by_pid: dict, by_bid: dict):
+    """로그 id → (name, folder). 'bm-' 접두면 미니카드, 아니면 프로젝트. 못 찾으면 None."""
+    if fid.startswith("bm-"):
+        b = by_bid.get(fid[3:])
+        if b:
+            return (b.get("name") or Path(b["folder"]).name), b["folder"]
+        return None
+    p = by_pid.get(fid)
+    if p:
+        return p.get("name", fid), p["folder"]
+    return None
+
+
+@app.get("/api/restore-folders")
+def restore_folders(window: int = 2880, x_token: Optional[str] = Header(default=None)):
+    """마지막 세션에 연 폴더 후보 목록 (큰 카드 + 미니카드, 최근순)."""
+    require_token(x_token)
+    data = load_projects_data()
+    by_pid = {p["id"]: p for p in data.get("projects", [])}
+    by_bid = {b["id"]: b for b in load_bookmarks() if b.get("id")}
+    out = []
+    for fid in _recent_folder_opens(window):
+        r = _resolve_folder_id(fid, by_pid, by_bid)
+        if r:
+            name, folder = r
+            out.append({
+                "id": fid,
+                "name": name,
+                "folder": folder,
+                "exists": Path(folder).exists(),
+            })
+        # 매칭 안 되는 id(삭제된 카드 등)는 복원 불가라 제외
+    return {"window": window, "candidates": out}
+
+
+@app.post("/api/restore-folders-launch")
+def restore_folders_launch(body: OrderIn, x_token: Optional[str] = Header(default=None)):
+    """선택한 폴더 id 들을 각각 탐색기로 연다 (explorer 탭 제어 불가라 개별 창)."""
+    require_token(x_token)
+    data = load_projects_data()
+    by_pid = {p["id"]: p for p in data.get("projects", [])}
+    by_bid = {b["id"]: b for b in load_bookmarks() if b.get("id")}
+    opened, skipped = 0, []
+    for fid in body.ids:
+        r = _resolve_folder_id(fid, by_pid, by_bid)
+        if not r or not Path(r[1]).exists():
+            skipped.append(fid)
+            continue
+        try:
+            os.startfile(r[1])
+            opened += 1
+        except Exception as e:  # noqa: BLE001
+            log.error("폴더 복원 열기 실패(%s): %s", fid, e)
+            skipped.append(fid)
+    if not opened:
+        raise HTTPException(status_code=400, detail="복원할 수 있는 폴더가 없음")
+    # 요약 로그(개별 '📂 [id] 폴더 열림' 과 다른 문구 → 다음 복원 후보에 안 섞임)
+    append_log(f"🕐 폴더 복원: {opened}개")
+    return {"ok": True, "opened": opened, "skipped": skipped}
+
+
 @app.post("/api/categories")
 def add_category(body: CategoryIn, x_token: Optional[str] = Header(default=None)):
     require_token(x_token)

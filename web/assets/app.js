@@ -672,6 +672,81 @@ function setupRestore() {
   });
 }
 
+// ─────────────────────────── 폴더 작업 복원 ───────────────────────────
+// 작업 복원(cldp)과 판박이. 다른 점: 후보 = 폴더 열기 로그(큰 카드 + 미니카드),
+// 실행 = 각각 새 탐색기 창(explorer 탭 제어 불가).
+async function openFolderRestoreModal() {
+  if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
+  const box = $("#folder-restore-list");
+  box.innerHTML = `<p class="hint-tiny">불러오는 중...</p>`;
+  $("#folder-restore-modal").classList.remove("hidden");
+  let data;
+  try { data = await api("/api/restore-folders?window=2880"); }
+  catch (err) { box.innerHTML = `<p class="hint-tiny">실패: ${err.message}</p>`; return; }
+  const list = data.candidates || [];
+  const toolbar = $("#folder-restore-toolbar");
+  if (!list.length) {
+    if (toolbar) toolbar.classList.add("hidden");
+    box.innerHTML = `<p class="hint-tiny">최근 연 폴더 기록이 없어. (카드/미니카드의 📁 폴더를 한 번 열면 기록돼서 다음부터 복원돼)</p>`;
+    return;
+  }
+  box.innerHTML = list.map(c => `
+    <label class="grp-check ${c.exists ? "on" : ""}">
+      <input type="checkbox" value="${c.id}" ${c.exists ? "checked" : ""} ${c.exists ? "" : "disabled"}/>
+      <span class="grp-check-cat">${c.exists ? "📂" : "⚠"}</span>
+      <span class="grp-check-name">${c.name}${c.exists ? "" : " (폴더 없음)"}</span>
+    </label>`).join("");
+  box.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      cb.closest(".grp-check").classList.toggle("on", cb.checked);
+      updateFolderRestoreHint();
+    });
+  });
+  if (toolbar) toolbar.classList.remove("hidden");
+  updateFolderRestoreHint();
+}
+
+function folderRestoreSelectableBoxes() {
+  return $$("#folder-restore-list input[type=checkbox]:not(:disabled)");
+}
+
+function updateFolderRestoreHint() {
+  const hint = $("#folder-restore-selected-hint");
+  if (!hint) return;
+  const all = folderRestoreSelectableBoxes();
+  const checked = all.filter(cb => cb.checked).length;
+  hint.textContent = `${checked} / ${all.length}개 선택됨`;
+}
+
+function setFolderRestoreAll(checked) {
+  folderRestoreSelectableBoxes().forEach(cb => {
+    cb.checked = checked;
+    cb.closest(".grp-check").classList.toggle("on", checked);
+  });
+  updateFolderRestoreHint();
+}
+
+function setupFolderRestore() {
+  const btn = $("#folder-restore-btn");
+  if (btn) btn.addEventListener("click", openFolderRestoreModal);
+  const selAll = $("#folder-restore-select-all");
+  if (selAll) selAll.addEventListener("click", () => setFolderRestoreAll(true));
+  const clrAll = $("#folder-restore-clear-all");
+  if (clrAll) clrAll.addEventListener("click", () => setFolderRestoreAll(false));
+  const confirmBtn = $("#folder-restore-confirm");
+  if (confirmBtn) confirmBtn.addEventListener("click", async () => {
+    const ids = $$("#folder-restore-list input[type=checkbox]:checked").map(cb => cb.value);
+    if (!ids.length) return toast("복원할 폴더를 골라줘", "err");
+    confirmBtn.disabled = true;
+    try {
+      const r = await api("/api/restore-folders-launch", { method: "POST", body: JSON.stringify({ ids }) });
+      $("#folder-restore-modal").classList.add("hidden");
+      toast(`📂 ${r.opened}개 폴더 열림`);
+    } catch (err) { toast("실패: " + err.message, "err"); }
+    finally { confirmBtn.disabled = false; }
+  });
+}
+
 function fillBookmarkCatSelect(selectedId) {
   const sel = $("#bm-category");
   if (!sel) return;
@@ -1463,6 +1538,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupProjectModal();
   setupGroupModal();
   setupRestore();
+  setupFolderRestore();
   setupDragAndDrop();
   setupChipDrag();
   setupSidebarDropZones();
