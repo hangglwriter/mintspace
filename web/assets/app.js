@@ -615,8 +615,8 @@ async function openRestoreModal() {
     return;
   }
   box.innerHTML = list.map(c => `
-    <label class="grp-check ${c.exists ? "on" : ""}">
-      <input type="checkbox" value="${c.id}" ${c.exists ? "checked" : ""} ${c.exists ? "" : "disabled"}/>
+    <label class="grp-check">
+      <input type="checkbox" value="${c.id}" ${c.exists ? "" : "disabled"}/>
       <span class="grp-check-cat">${c.exists ? "💬" : "⚠"}</span>
       <span class="grp-check-name">${c.name}${c.exists ? "" : " (폴더 없음)"}</span>
     </label>`).join("");
@@ -691,8 +691,8 @@ async function openFolderRestoreModal() {
     return;
   }
   box.innerHTML = list.map(c => `
-    <label class="grp-check ${c.exists ? "on" : ""}">
-      <input type="checkbox" value="${c.id}" ${c.exists ? "checked" : ""} ${c.exists ? "" : "disabled"}/>
+    <label class="grp-check">
+      <input type="checkbox" value="${c.id}" ${c.exists ? "" : "disabled"}/>
       <span class="grp-check-cat">${c.exists ? "📂" : "⚠"}</span>
       <span class="grp-check-name">${c.name}${c.exists ? "" : " (폴더 없음)"}</span>
     </label>`).join("");
