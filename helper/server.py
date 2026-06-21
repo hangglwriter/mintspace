@@ -106,7 +106,12 @@ app = FastAPI(title="민티스페이스 헬퍼", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^(http://(localhost|127\.0\.0\.1)(:\d+)?|https://([a-z0-9-]+\.)?pages\.dev|https://([a-z0-9-]+\.)?vercel\.app|https://([a-z0-9-]+\.)?mintspace\.([a-z0-9-]+\.)*[a-z]+)$",
+    # 화이트리스트는 좁게: 로컬 + 내 mintspace Vercel 배포(프로덕션/프리뷰)만.
+    #   mintspace.vercel.app / mintspace-git-main-xxx.vercel.app / mintspace-<hash>-xxx.vercel.app
+    #   전부 'mintspace' 로 시작 + '.vercel.app' 로 끝남.
+    # 옛 정규식은 *.vercel.app / *.pages.dev 전체를 허용 → 누구나 만들 수 있는
+    #   임의 사이트(evil.vercel.app 등)가 CORS 를 통과하는 구멍이었음(2026-06-22 좁힘).
+    allow_origin_regex=r"^(http://(localhost|127\.0\.0\.1)(:\d+)?|https://mintspace[a-z0-9-]*\.vercel\.app)$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -237,10 +242,29 @@ def health():
 
 @app.get("/api/token-bootstrap")
 def token_bootstrap(request: Request):
-    """로컬 접속에서만 토큰 발급."""
+    """로컬 브라우저(localhost 직접 접속)에서만 토큰 발급.
+
+    ⚠ 'client.host == 127.0.0.1' 만으로는 부족하다. 피해자가 악성 외부 페이지
+    (예: evil.vercel.app)를 열면, 그 페이지의 JS 가 보낸 localhost fetch 도
+    TCP 소스는 127.0.0.1 이라 이 검사를 통과해 토큰을 훔쳐갈 수 있다(2026-06-22).
+    브라우저가 cross-origin 요청에 강제로 붙이는 Origin / Sec-Fetch-Site 헤더로
+    "정말 로컬 출처인지" 한 겹 더 확인한다. (Vercel 화면은 원래 ⚙ 설정에서 토큰
+    수동 입력하는 흐름이므로 여기서 막혀도 정상 사용엔 지장 없음.)
+    """
     host = (request.client.host if request.client else "") or ""
     if host not in ("127.0.0.1", "::1", "localhost"):
         raise HTTPException(status_code=403, detail="local only")
+    # 1) Origin 헤더: cross-origin fetch 면 항상 붙는다. localhost 계열이 아니면 거부.
+    origin = request.headers.get("origin")
+    if origin is not None:
+        from urllib.parse import urlparse
+        oh = (urlparse(origin).hostname or "").lower()
+        if oh not in ("localhost", "127.0.0.1", "::1"):
+            raise HTTPException(status_code=403, detail="local origin only")
+    # 2) Sec-Fetch-Site: 최신 브라우저가 위조 불가하게 붙임. 외부 사이트발 요청 차단.
+    sec_site = request.headers.get("sec-fetch-site")
+    if sec_site is not None and sec_site not in ("same-origin", "none"):
+        raise HTTPException(status_code=403, detail="local origin only")
     return {"token": TOKEN}
 
 
