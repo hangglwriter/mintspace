@@ -1116,6 +1116,36 @@ body.edit-mode .card-actions {
   height: 38px;
   padding: 2px;
 }
+
+/* 사이트(배포 URL) 다중 입력 행 */
+.site-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.site-row { display: flex; gap: 6px; align-items: center; }
+/* 공통 input{width:100%} 를 flex 비율로 덮어씀 */
+.site-row .site-label { width: 96px; flex: 0 0 96px; }
+.site-row .site-url { flex: 1 1 auto; width: auto; min-width: 0; }
+.site-remove {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 16px; line-height: 1;
+}
+.site-remove:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.site-add-btn {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.site-add-btn:hover { border-color: var(--accent); color: var(--accent); }
 .modal-inner code {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;

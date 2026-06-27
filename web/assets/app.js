@@ -189,7 +189,9 @@ function renderCard(p, cat) {
   card.draggable = true;
   Object.entries(categoryStyle(cat)).forEach(([k, v]) => card.style.setProperty(k, v));
 
-  const deployBadge = p.url ? `<span class="badge">배포</span>` : "";
+  // 사이트(배포 URL) 목록: 신규 sites 배열 우선, 없으면 옛 단일 url 호환
+  const sites = (p.sites && p.sites.length) ? p.sites : (p.url ? [{ label: "", url: p.url }] : []);
+  const deployBadge = sites.length ? `<span class="badge">배포</span>` : "";
   const missingBadge = p.exists === false ? `<span class="badge" style="background:#fee2e2;color:#991b1b">없음</span>` : "";
   const meta = p.last_modified ? `<div class="card-meta">최근 수정 ${relTime(p.last_modified)}</div>` : "";
 
@@ -206,7 +208,7 @@ function renderCard(p, cat) {
     <div class="card-actions">
       <button class="card-btn" data-action="folder" title="파일 탐색기 열기">📂 폴더</button>
       <button class="card-btn primary" data-action="terminal" title="cldp 실행 — 클릭: 최근 창에 탭 / Shift+클릭: 새 창">💬 cldp</button>
-      ${p.url ? `<button class="card-btn" data-action="url" title="사이트 열기">🌐 사이트</button>` : ""}
+      ${sites.map((s, i) => `<button class="card-btn" data-action="url" data-idx="${i}" title="${(s.url || "").replace(/"/g, "&quot;")}">🌐 ${s.label ? s.label : "사이트"}</button>`).join("")}
     </div>
   `;
 
@@ -241,11 +243,15 @@ function renderCard(p, cat) {
       return;
     }
     if (action === "edit") {
-      openRenameModal("project", p.id, p.name, p.category, p.folder, p.url);
+      openRenameModal("project", p.id, p.name, p.category, p.folder, sites, p.url);
       return;
     }
     if (STATE.editMode) return;  // 편집 모드에선 그 외 액션 비활성 (실수 방지)
-    if (action === "url") { window.open(p.url, "_blank", "noopener"); return; }
+    if (action === "url") {
+      const site = sites[+btn.dataset.idx];
+      if (site) window.open(site.url, "_blank", "noopener");
+      return;
+    }
     if (!STATE.connected) return toast("헬퍼가 꺼져 있어", "err");
     btn.disabled = true;
     try {
@@ -910,7 +916,7 @@ function setupProjectModal() {
         method: "POST",
         body: JSON.stringify({
           name, category, folder,
-          url: $("#prj-url").value.trim() || null,
+          sites: collectSiteRows("prj-sites"),
           note: $("#prj-note").value.trim() || null,
         }),
       });
@@ -921,10 +927,53 @@ function setupProjectModal() {
   });
 }
 
+// ===== 사이트(배포 URL) 다중 입력 행 =====
+function siteRowHtml(label = "", url = "") {
+  const esc = (v) => (v || "").replace(/"/g, "&quot;");
+  return `<div class="site-row">
+    <input class="site-label" type="text" placeholder="라벨 (예: 메인)" value="${esc(label)}" />
+    <input class="site-url" type="text" placeholder="https://..." value="${esc(url)}" />
+    <button class="site-remove" type="button" title="이 사이트 삭제">×</button>
+  </div>`;
+}
+
+function renderSiteRows(containerId, sites) {
+  const list = (sites && sites.length) ? sites : [{ label: "", url: "" }];
+  $("#" + containerId).innerHTML = list.map(s => siteRowHtml(s.label, s.url)).join("");
+}
+
+function collectSiteRows(containerId) {
+  return $$("#" + containerId + " .site-row").map(row => ({
+    label: row.querySelector(".site-label").value.trim(),
+    url: row.querySelector(".site-url").value.trim(),
+  })).filter(s => s.url);
+}
+
+// 추가/삭제 버튼은 이벤트 위임으로 한 번만 연결 (두 모달 공용)
+function setupSiteRows() {
+  document.addEventListener("click", (e) => {
+    const addBtn = e.target.closest("[data-sites-add]");
+    if (addBtn) {
+      const box = $("#" + addBtn.dataset.sitesAdd);
+      box.insertAdjacentHTML("beforeend", siteRowHtml());
+      box.lastElementChild.querySelector(".site-label").focus();
+      return;
+    }
+    const rm = e.target.closest(".site-remove");
+    if (rm) {
+      const box = rm.closest(".site-rows");
+      rm.closest(".site-row").remove();
+      // 다 지워지면 빈 행 하나 남겨 다시 입력 가능하게
+      if (box && !box.querySelector(".site-row")) box.insertAdjacentHTML("beforeend", siteRowHtml());
+      return;
+    }
+  });
+}
+
 function openProjectModal(categoryId) {
   $("#prj-name").value = "";
   $("#prj-folder").value = "";
-  $("#prj-url").value = "";
+  renderSiteRows("prj-sites", []);
   $("#prj-note").value = "";
   const sel = $("#prj-category");
   sel.innerHTML = STATE.data.categories.map(c => `<option value="${c.id}" ${c.id === categoryId ? "selected" : ""}>${c.icon} ${c.name}</option>`).join("");
@@ -970,16 +1019,20 @@ function fillRenameCatSelect(selectedId, kind) {
   if (selectedId) sel.value = selectedId;
 }
 
-function openRenameModal(kind, id, currentName, currentCategory, currentFolder, currentUrl) {
+function openRenameModal(kind, id, currentName, currentCategory, currentFolder, currentSites, currentUrl) {
   renameTarget = { kind, id };
   $("#rn-name").value = currentName || "";
   $("#rn-folder").value = currentFolder || "";
   fillRenameCatSelect(currentCategory, kind);
-  // 프로젝트만: 폴더 경로와 별개로 배포 사이트 URL 칸을 따로 보여줌
+  // 프로젝트만: 폴더 경로와 별개로 배포 사이트(라벨+URL) 칸을 따로 보여줌
   // (프로젝트 먼저 만들고 나중에 사이트 붙이는 흐름 대응)
   const isProject = kind === "project";
   $("#rn-url-row").style.display = isProject ? "" : "none";
-  $("#rn-url").value = isProject ? (currentUrl || "") : "";
+  if (isProject) {
+    const sites = (currentSites && currentSites.length) ? currentSites
+      : (currentUrl ? [{ label: "", url: currentUrl }] : []);
+    renderSiteRows("rn-sites", sites);
+  }
   $("#rn-folder-label").textContent = isProject ? "폴더 경로" : "경로 또는 URL";
   $("#rename-modal").classList.remove("hidden");
   // focus / select 는 모달이 보이고 난 뒤
@@ -998,10 +1051,10 @@ function setupRenameModal() {
       ? `/api/bookmarks/${renameTarget.id}`
       : `/api/projects-meta/${renameTarget.id}`;
     const payload = { name: next, category: newCat, folder };
-    // 프로젝트는 사이트 URL 도 함께 저장. 빈 칸이면 "" 전송 → 서버가 null 로 저장해 🌐 버튼 제거
-    // (null 을 보내면 pydantic Optional 이 "미전송"과 구분 못 해 서버가 무시함)
+    // 프로젝트는 사이트(라벨+URL 다중)도 함께 저장. 빈 행은 collectSiteRows 에서 걸러짐.
+    // 다 비우면 [] 전송 → 서버가 sites=[] + url=null 로 저장해 🌐 버튼 제거
     if (renameTarget.kind === "project") {
-      payload.url = $("#rn-url").value.trim();
+      payload.sites = collectSiteRows("rn-sites");
     }
     try {
       await api(endpoint, {
@@ -1533,6 +1586,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTokenModal();
   setupBookmarkModal();
   setupRenameModal();
+  setupSiteRows();
   setupStarSuggest();
   setupCategoryModal();
   setupProjectModal();

@@ -153,12 +153,18 @@ class CategoryIn(BaseModel):
     color: Optional[str] = None
 
 
+class SiteLink(BaseModel):
+    label: Optional[str] = ""
+    url: str
+
+
 class ProjectIn(BaseModel):
     id: Optional[str] = None
     name: str
     category: str
     folder: str
-    url: Optional[str] = None
+    url: Optional[str] = None  # 하위호환(단일 URL). 신규는 sites 사용
+    sites: Optional[list[SiteLink]] = None
     note: Optional[str] = None
 
 
@@ -176,7 +182,8 @@ class ProjectPatch(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     folder: Optional[str] = None
-    url: Optional[str] = None
+    url: Optional[str] = None  # 하위호환
+    sites: Optional[list[SiteLink]] = None
     note: Optional[str] = None
     starred: Optional[bool] = None
 
@@ -280,6 +287,9 @@ def get_projects(x_token: Optional[str] = Header(default=None)):
     for p in data.get("projects", []):
         if "starred" not in p:
             p["starred"] = False
+        # 사이트 다중화 마이그레이션: 옛 단일 url -> sites 배열
+        if "sites" not in p:
+            p["sites"] = [{"label": "", "url": p["url"]}] if p.get("url") else []
         try:
             f = Path(p["folder"])
             p["exists"] = f.exists()
@@ -748,12 +758,19 @@ def add_project(body: ProjectIn, x_token: Optional[str] = Header(default=None)):
     pid = body.id or slugify(body.name)
     if any(p["id"] == pid for p in data["projects"]):
         pid = pid + "-" + secrets.token_hex(2)
+    # sites(라벨+URL 다중) 우선, 없으면 옛 단일 url 에서 변환
+    if body.sites is not None:
+        sites = [s.dict() for s in body.sites]
+    else:
+        sites = [{"label": "", "url": body.url}] if body.url else []
+    sites = [s for s in sites if (s.get("url") or "").strip()]
     item = {
         "id": pid,
         "name": body.name,
         "category": body.category,
         "folder": body.folder,
-        "url": body.url,
+        "sites": sites,
+        "url": sites[0]["url"] if sites else None,  # 하위호환 유지
         "note": body.note or "",
     }
     data["projects"].append(item)
@@ -809,8 +826,15 @@ def update_project(project_id: str, body: ProjectPatch, x_token: Optional[str] =
         p["category"] = body.category
     if body.name is not None: p["name"] = body.name
     if body.folder is not None: p["folder"] = body.folder
-    # 빈 문자열로 오면 None 으로 저장 → 카드에서 🌐 사이트 버튼 제거 (URL 지우기 지원)
-    if body.url is not None: p["url"] = body.url or None
+    # sites(다중) 우선. 빈 행은 거름 → 다 비면 빈 배열로 저장돼 카드 🌐 버튼 사라짐
+    if body.sites is not None:
+        sites = [s.dict() for s in body.sites if (s.url or "").strip()]
+        p["sites"] = sites
+        p["url"] = sites[0]["url"] if sites else None  # 하위호환
+    elif body.url is not None:
+        # 옛 단일 url 경로(혹시 모를 호환). 빈 문자열이면 제거
+        p["url"] = body.url or None
+        p["sites"] = [{"label": "", "url": body.url}] if body.url else []
     if body.note is not None: p["note"] = body.note
     if body.starred is not None: p["starred"] = body.starred
     save_projects_data(data)

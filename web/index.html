@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>민티스페이스</title>
-  <link rel="stylesheet" href="/assets/style.css?v=2026061402" />
+  <link rel="stylesheet" href="/assets/style.css?v=2026062701" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🌿%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -197,8 +197,9 @@
       <select id="prj-category"></select>
       <label>폴더 경로</label>
       <input id="prj-folder" type="text" placeholder="D:\path\to\folder" />
-      <label>URL (선택)</label>
-      <input id="prj-url" type="text" placeholder="https://..." />
+      <label>사이트 (선택) <span class="hint-tiny">메인·관리자 등 여러 개 추가 가능</span></label>
+      <div id="prj-sites" class="site-rows"></div>
+      <button type="button" class="site-add-btn" data-sites-add="prj-sites">+ 사이트 추가</button>
       <label>메모 (선택)</label>
       <input id="prj-note" type="text" />
       <div class="modal-actions">
@@ -246,9 +247,10 @@
       <input id="rn-folder" type="text" placeholder="D:\path\to\folder / 문서.hwp / https://..." />
       <p class="hint-tiny" id="rn-folder-hint">표시 이름·카테고리·경로(이 카드가 가리키는 위치)를 바꿀 수 있어. 실제 폴더/파일 자체는 안 바뀜. 경로를 바꾸면 폴더/문서/링크 종류는 자동 재판별돼.</p>
       <div id="rn-url-row" style="display:none">
-        <label>🌐 사이트 URL (선택)</label>
-        <input id="rn-url" type="text" placeholder="https://..." />
-        <p class="hint-tiny">프로젝트가 배포된 사이트 주소. 입력하면 카드에 🌐 사이트 버튼이 생겨 (폴더 경로와는 별개). 비우면 버튼이 사라져.</p>
+        <label>🌐 사이트 (선택) <span class="hint-tiny">메인·관리자 등 여러 개</span></label>
+        <div id="rn-sites" class="site-rows"></div>
+        <button type="button" class="site-add-btn" data-sites-add="rn-sites">+ 사이트 추가</button>
+        <p class="hint-tiny">라벨(예: 메인, 관리자)을 적으면 카드 버튼에 그 이름이 떠. 비우면 "사이트"로 표시. 행을 모두 비우면 🌐 버튼이 사라져.</p>
       </div>
       <div class="modal-actions">
         <button class="link-btn" onclick="document.getElementById('rename-modal').classList.add('hidden')">취소</button>
@@ -332,6 +334,6 @@
     </div>
   </div>
 
-  <script src="/assets/app.js?v=2026062101"></script>
+  <script src="/assets/app.js?v=2026062701"></script>
 </body>
 </html>

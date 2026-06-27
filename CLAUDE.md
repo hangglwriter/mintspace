@@ -27,6 +27,8 @@
 - [x] **작업/폴더 복원 기본값 = 전체 해제** (2026-06-22) - 두 복원 모달이 처음 뜰 때 후보가 다 체크돼 있던 걸 **전부 미선택**으로 변경. 렌더에서 `${c.exists ? "checked":""}` + `.grp-check.on` 제거(`openRestoreModal`/`openFolderRestoreModal`). 폴더 없는 후보 disabled 흐림은 유지. 힌트 `0 / N개 선택됨`으로 시작. 캐시 `?v=2026062101`
 - [x] **헬퍼 보안 강화** (2026-06-22) - "사이트 노출 시 위협" 점검에서 구멍 발견·봉쇄. ① CORS `allow_origin_regex` 를 `*.vercel.app`/`*.pages.dev` 와일드카드(=누구나 만드는 사이트 통과) → `mintspace[a-z0-9-]*\.vercel\.app` + 로컬만으로 좁힘 ② `token-bootstrap` 이 `client.host==127.0.0.1` 만 보던 걸(악성 외부 페이지가 피해자 PC에서 localhost fetch 하면 TCP 소스가 127.0.0.1이라 통과 → 토큰 탈취) **Origin/Sec-Fetch-Site 검증** 추가로 cross-origin 차단. 실제 공격 흉내(`Origin: evil.vercel.app`, `Sec-Fetch-Site: cross-site`)로 403 검증 완료. 정상 로컬·내 vercel 배포는 통과. 상세 → 메모리 [[mintspace-helper-cors-token-hardening]]. ⚠ server.py 변경이라 헬퍼 재시작 필요
 
+- [x] **프로젝트 카드 사이트 다중화** (2026-06-27) - 한 카드에 참조 사이트 여러 개(메인·관리자 등). 프로젝트마다 `sites: [{label, url}]` 배열로 저장(라벨 자유 입력, 비우면 카드 버튼이 "사이트"). 카드는 사이트마다 `🌐 {라벨}` 버튼 하나씩, 클릭 시 `data-idx`로 클로저의 `sites[i].url` 열기(이스케이프 회피). 추가/편집 모달은 단일 URL 칸 → "라벨+URL 행 여러 개 + [+ 사이트 추가]" (`renderSiteRows`/`collectSiteRows`/`siteRowHtml`, 삭제·추가는 `setupSiteRows` 이벤트 위임 1회 연결, 다 지우면 빈 행 1개 유지). 옛 단일 `url`은 get_projects 가 sites 로 자동 마이그레이션 + add/update 가 `url`=첫 사이트로 동기화(하위호환). 빈 행은 `collectSiteRows`/서버 양쪽에서 거름 → 다 비우면 sites=[] + url=null 로 🌐 버튼 사라짐. CSS `.site-row`(flex, `.site-label` 96px 고정 / `.site-url` flex:1 — 공통 `input{width:100%}` override). 캐시 `?v=2026062701`. ⚠ server.py(SiteLink 모델, ProjectIn/Patch, get_projects/add/update) 변경이라 헬퍼 재시작 필요
+
 ### 다음 할 것
 - [ ] 탭 그룹: 카드에서 멤버 칩 X로 바로 빼기 + 그룹 순서 드래그 (지금은 편집 모달 체크박스로만)
 - [ ] 바탕화면 스캔에 파일 포함 옵션 (지금은 폴더만 일괄 수집; 파일은 모달로 개별 추가)
